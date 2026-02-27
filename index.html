@@ -96,6 +96,12 @@ footer{text-align:center;padding:24px;color:var(--text-muted);font-size:.8em;bor
 .start-over{position:fixed;bottom:20px;right:20px;z-index:50}
 .save-indicator{font-size:.75em;color:var(--green);opacity:0;transition:opacity .3s}
 .save-indicator.show{opacity:1}
+.note-toggle{font-size:.8em;color:var(--accent);cursor:pointer;margin-top:4px;display:inline-block}
+.note-toggle:hover{text-decoration:underline}
+.control-note{margin-top:6px;display:none}
+.control-note.open{display:block}
+.control-note textarea{width:100%;min-height:50px;padding:8px;font-size:.8em}
+.rev3-banner{background:rgba(210,153,34,.1);border:1px solid var(--yellow);border-radius:var(--radius);padding:14px 18px;margin-bottom:20px;color:var(--yellow);font-size:.9em}
 .auto-pop-hint{font-size:.8em;color:var(--text-muted);margin-top:4px;font-style:italic}
 .tooltip-wrap{position:relative;display:inline-block}
 .tooltip-wrap .tooltip-text{visibility:hidden;background:var(--surface);color:var(--text);padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);font-size:.8em;position:absolute;bottom:125%;left:50%;transform:translateX(-50%);white-space:nowrap;z-index:10;opacity:0;transition:opacity .2s}
@@ -103,7 +109,7 @@ footer{text-align:center;padding:24px;color:var(--text-muted);font-size:.8em;bor
 </style>
 </head>
 <body>
-<header><div class="container"><div><div class="logo">🛡️ Cyber Ops — <span>CMMC Level 2 SSP Builder</span></div><div class="brand-sub">By <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a></div></div><span class="save-indicator" id="saveIndicator">✓ Saved</span><button class="btn btn-danger start-over" onclick="startOver()">Start Over</button></div></header>
+<header><div class="container"><div><div class="logo">🛡️ Cyber Ops — <span>CMMC Level 2 SSP Builder</span></div><div class="brand-sub">By <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a></div></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:6px;font-size:.8em;cursor:pointer;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)"><span id="revLabel">Rev 2</span><input type="checkbox" id="revToggle" onchange="toggleRev()" style="accent-color:var(--accent)"><span style="color:var(--text-muted)">Rev 3</span></label><span class="save-indicator" id="saveIndicator">✓ Saved</span><button class="btn btn-danger start-over" onclick="startOver()">Start Over</button></div></div></header>
 <div class="progress-bar"><div class="container"><div class="progress-track"><div class="progress-fill" id="progressFill"></div></div><div class="phase-labels" id="phaseLabels"></div></div></div>
 <div class="container" id="app"></div>
 <footer>© 2026 <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a> — CMMC Level 2 SSP Builder. All assessment data stays in your browser.</footer>
@@ -241,9 +247,9 @@ const CONTROLS = [
 
 const FAMILIES = {AC:"Access Control",AT:"Awareness & Training",AU:"Audit & Accountability",CM:"Configuration Management",IA:"Identification & Authentication",IR:"Incident Response",MA:"Maintenance",MP:"Media Protection",PS:"Personnel Security",PE:"Physical Protection",RA:"Risk Assessment",CA:"Security Assessment",SC:"System & Communications Protection",SI:"System & Information Integrity"};
 const PHASE_NAMES = ["Readiness","Organization","Technical","Policies","Controls","Results","Documents"];
-const STATUS_OPTIONS = [{v:"implemented",l:"✅ Implemented"},{v:"partial",l:"🟡 Partial"},{v:"not_implemented",l:"❌ Not Implemented"},{v:"inherited",l:"🔄 Inherited"}];
+const STATUS_OPTIONS = [{v:"implemented",l:"✅ Implemented"},{v:"partial",l:"🟡 Partial"},{v:"not_implemented",l:"❌ Not Implemented"},{v:"inherited",l:"🔄 Inherited"},{v:"na",l:"⬜ N/A"}];
 
-const _defaultState={phase:0,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},searchFilter:""};
+const _defaultState={phase:0,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},nistRev:'rev2',searchFilter:""};
 const _saved=JSON.parse(localStorage.getItem('cmmc_state')||'null');
 let state;
 if(_saved&&_saved.phase>0){
@@ -342,15 +348,24 @@ function autoPopulate(){
 // SPRS SCORE
 // ============================================================
 function calcScore(){
-  let score=110;
+  let maxScore=0;let earned=0;
   const gaps=[];
   CONTROLS.forEach(ctrl=>{
     const s=state.controls[ctrl.id];
-    if(!s||s==='not_implemented'){score-=ctrl.weight;gaps.push(ctrl)}
-    else if(s==='partial'){score-=Math.ceil(ctrl.weight/2);gaps.push(ctrl)}
+    if(s==='na')return; // N/A excluded entirely
+    maxScore+=ctrl.weight;
+    if(!s||s==='not_implemented'){gaps.push(ctrl)}
+    else if(s==='partial'){earned+=Math.floor(ctrl.weight/2);gaps.push(ctrl)}
+    else{earned+=ctrl.weight} // implemented or inherited
   });
+  // SPRS = 110 minus total weight lost; N/A controls removed from denominator
+  const totalWeight=CONTROLS.reduce((a,c)=>a+c.weight,0);
+  const naWeight=CONTROLS.filter(c=>state.controls[c.id]==='na').reduce((a,c)=>a+c.weight,0);
+  const applicableMax=totalWeight-naWeight;
+  const lost=applicableMax-earned;
+  const score=110-lost;
   gaps.sort((a,b)=>b.weight-a.weight);
-  return{score,gaps};
+  return{score,gaps,maxScore:applicableMax,naCount:CONTROLS.filter(c=>state.controls[c.id]==='na').length};
 }
 
 // ============================================================
@@ -369,7 +384,7 @@ function render(){
   $('#phaseLabels').innerHTML=labels;
   const renderers=[renderPhase0,renderPhase1,renderPhase2,renderPhase3,renderPhase4,renderPhase5,renderPhase6];
   app.innerHTML='<div class="phase active">'+renderers[state.phase]()+'</div>';
-  bindEvents();
+  bindEvents();initRevToggle();
 }
 
 function yn(name,stateObj,key){
@@ -549,22 +564,31 @@ function renderPhase3(){
 }
 
 function renderPhase4(){
-  let h=`<h2>Phase 4: Control Assessment</h2><p class="subtitle">Assess all 110 NIST 800-171 Rev 2 controls. Statuses were pre-populated from your earlier answers — review and adjust as needed.</p>`;
+  let h='';
+  if(state.nistRev==='rev3'){h+=`<div class="rev3-banner">⚠️ <strong>NIST 800-171 Rev 3</strong> support coming soon — currently using <strong>Rev 2</strong> (required for CMMC Level 2 assessments through 2025).</div>`}
+  h+=`<h2>Phase 4: Control Assessment</h2><p class="subtitle">Assess all 110 NIST 800-171 Rev 2 controls. Statuses were pre-populated from your earlier answers — review and adjust as needed.</p>`;
   h+=`<div class="search-box"><input type="text" id="ctrlSearch" placeholder="🔍 Search controls by ID, name, or description..." value="${state.searchFilter||''}"></div>`;
   const familyKeys=Object.keys(FAMILIES);
   familyKeys.forEach(fk=>{
     const fControls=CONTROLS.filter(c=>c.family===fk);
-    const done=fControls.filter(c=>state.controls[c.id]==='implemented'||state.controls[c.id]==='inherited').length;
-    const pct=Math.round(done/fControls.length*100);
+    const applicable=fControls.filter(c=>state.controls[c.id]!=='na');
+    const done=applicable.filter(c=>state.controls[c.id]==='implemented'||state.controls[c.id]==='inherited').length;
+    const naC=fControls.length-applicable.length;
+    const pct=applicable.length?Math.round(done/applicable.length*100):100;
     h+=`<div class="control-family" data-family="${fk}"><div class="family-header" onclick="toggleFamily('${fk}')">
-      <span>${FAMILIES[fk]} (${fk})<span class="completion-pct">${pct}% complete</span></span>
-      <span class="badge">${done}/${fControls.length}</span>
+      <span>${FAMILIES[fk]} (${fk})<span class="completion-pct">${pct}% complete${naC?' · '+naC+' N/A':''}</span></span>
+      <span class="badge">${done}/${applicable.length}</span>
     </div><div class="family-body">`;
     fControls.forEach(c=>{
       const s=state.controls[c.id]||'';
+      const note=state.controlNotes&&state.controlNotes[c.id]||'';
+      const hasNote=note.length>0;
       h+=`<div class="control-row" data-ctrl-search="${(c.id+' '+c.title+' '+c.desc).toLowerCase()}">
         <div class="control-id">${c.id}</div>
-        <div class="control-desc"><strong>${c.title}</strong><br>${c.desc}<br><span style="font-size:.75em;color:var(--text-muted)">Weight: ${c.weight}</span></div>
+        <div class="control-desc"><strong>${c.title}</strong><br>${c.desc}<br><span style="font-size:.75em;color:var(--text-muted)">Weight: ${c.weight}</span>
+          <br><span class="note-toggle" onclick="toggleNote('${c.id}')">${hasNote?'📝 Edit Notes':'+ Add Notes'}</span>
+          <div class="control-note${hasNote?' open':''}" id="note-${c.id}"><textarea data-note="${c.id}" placeholder="Evidence, implementation details, or justification...">${note}</textarea></div>
+        </div>
         <div class="control-status"><select data-control="${c.id}">
           <option value="">— Select —</option>
           ${STATUS_OPTIONS.map(o=>`<option value="${o.v}" ${s===o.v?'selected':''}>${o.l}</option>`).join('')}
@@ -581,8 +605,8 @@ function renderPhase5(){
   const{score,gaps}=calcScore();
   const cls=score>=80?'green':score>=50?'yellow':'red';
   const total=CONTROLS.length;
-  let impl=0,partial=0,notImpl=0,inherited=0;
-  CONTROLS.forEach(c=>{const s=state.controls[c.id];if(s==='implemented')impl++;else if(s==='partial')partial++;else if(s==='inherited')inherited++;else notImpl++});
+  let impl=0,partial=0,notImpl=0,inherited=0,naCount=0;
+  CONTROLS.forEach(c=>{const s=state.controls[c.id];if(s==='implemented')impl++;else if(s==='partial')partial++;else if(s==='inherited')inherited++;else if(s==='na')naCount++;else notImpl++});
   let h=`<h2>Phase 5: Results Dashboard</h2>`;
   h+=`<div class="score-display"><div class="score-number ${cls}">${score}</div><div class="score-label">SPRS Score (out of 110)</div></div>`;
   h+=`<div class="stats-grid">
@@ -590,13 +614,16 @@ function renderPhase5(){
     <div class="stat-card"><div class="num" style="color:var(--yellow)">${partial}</div><div class="lbl">🟡 Partial</div></div>
     <div class="stat-card"><div class="num" style="color:var(--red)">${notImpl}</div><div class="lbl">❌ Not Implemented</div></div>
     <div class="stat-card"><div class="num" style="color:var(--purple)">${inherited}</div><div class="lbl">🔄 Inherited</div></div>
+    <div class="stat-card"><div class="num" style="color:var(--text-muted)">${naCount}</div><div class="lbl">⬜ N/A</div></div>
   </div>`;
+  if(naCount>0)h+=`<p style="text-align:center;color:var(--text-muted);font-size:.85em">${naCount} control(s) marked N/A — excluded from SPRS scoring</p>`;
   // Family breakdown
   h+=`<h3>Compliance by Family</h3>`;
   Object.keys(FAMILIES).forEach(fk=>{
     const fc=CONTROLS.filter(c=>c.family===fk);
-    const done=fc.filter(c=>state.controls[c.id]==='implemented'||state.controls[c.id]==='inherited').length;
-    const pct=Math.round(done/fc.length*100);
+    const appFc=fc.filter(c=>state.controls[c.id]!=='na');
+    const done=appFc.filter(c=>state.controls[c.id]==='implemented'||state.controls[c.id]==='inherited').length;
+    const pct=appFc.length?Math.round(done/appFc.length*100):100;
     const color=pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';
     h+=`<div class="family-bar"><div class="family-bar-label"><span>${FAMILIES[fk]} (${fk})</span><span>${done}/${fc.length}</span></div>
     <div class="family-bar-track"><div class="family-bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
@@ -703,6 +730,10 @@ function bindEvents(){
   $$('[data-control]').forEach(el=>{
     el.addEventListener('change',()=>{state.controls[el.dataset.control]=el.value;save()});
   });
+  // Control notes
+  $$('[data-note]').forEach(el=>{
+    el.addEventListener('input',()=>{if(!state.controlNotes)state.controlNotes={};state.controlNotes[el.dataset.note]=el.value;save()});
+  });
   // Search
   const searchEl=$('#ctrlSearch');
   if(searchEl){
@@ -764,9 +795,9 @@ function genExecSummary(){
   const risk=score>=80?'LOW':score>=50?'MODERATE':'HIGH';
   let md=`# CMMC Level 2 — Executive Summary\n\n**Organization:** ${org}\n**Date:** ${new Date().toLocaleDateString()}\n**Assessment Goal:** ${state.p0.goal||'N/A'}\n\n---\n\n## SPRS Score: ${score} / 110\n\n**Risk Level:** ${risk}\n\n`;
   md+=`## Compliance Overview\n\n`;
-  let impl=0,partial=0,notImpl=0,inherited=0;
-  CONTROLS.forEach(c=>{const s=state.controls[c.id];if(s==='implemented')impl++;else if(s==='partial')partial++;else if(s==='inherited')inherited++;else notImpl++});
-  md+=`- Implemented: ${impl}\n- Partially Implemented: ${partial}\n- Not Implemented: ${notImpl}\n- Inherited: ${inherited}\n\n`;
+  let impl=0,partial=0,notImpl=0,inherited=0,naC=0;
+  CONTROLS.forEach(c=>{const s=state.controls[c.id];if(s==='implemented')impl++;else if(s==='partial')partial++;else if(s==='inherited')inherited++;else if(s==='na')naC++;else notImpl++});
+  md+=`- Implemented: ${impl}\n- Partially Implemented: ${partial}\n- Not Implemented: ${notImpl}\n- Inherited: ${inherited}\n- Not Applicable: ${naC}\n\n`;
   md+=`## Top Gaps\n\n`;
   gaps.slice(0,5).forEach(g=>{md+=`- **${g.id}** — ${g.title} (Weight: ${g.weight})\n  ${g.desc}\n\n`});
   md+=`## Recommendations\n\n`;
@@ -797,7 +828,10 @@ function genSSP(){
     CONTROLS.filter(c=>c.family===fk).forEach(c=>{
       const s=state.controls[c.id]||'Not Assessed';
       const statusLabel=STATUS_OPTIONS.find(o=>o.v===s)?.l||'Not Assessed';
-      md+=`**${c.id} — ${c.title}**\nRequirement: ${c.desc}\nStatus: ${statusLabel}\n\n`;
+      const note=state.controlNotes&&state.controlNotes[c.id]||'';
+      md+=`**${c.id} — ${c.title}**\nRequirement: ${c.desc}\nStatus: ${statusLabel}\n`;
+      if(note)md+=`Implementation Notes: ${note}\n`;
+      md+=`\n`;
     });
   });
   md+=`---\n*Generated by Cyber Ops — CMMC Level 2 SSP Builder | Mirzayan LLC*\n`;
@@ -903,8 +937,15 @@ async function genZip(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='CMMC_L2_SSP_Package.zip';a.click();
 }
 
+function toggleNote(id){const el=document.getElementById('note-'+id);if(el)el.classList.toggle('open')}
+function toggleRev(){
+  const checked=document.getElementById('revToggle').checked;
+  state.nistRev=checked?'rev3':'rev2';save();render();
+}
+function initRevToggle(){const el=document.getElementById('revToggle');if(el)el.checked=state.nistRev==='rev3'}
+
 // Init
-render();
+render();initRevToggle();
 </script>
 </body>
 </html>
