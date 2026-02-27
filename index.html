@@ -52,8 +52,8 @@ textarea{resize:vertical;min-height:60px}
 .btn-success{background:var(--green);color:#000}.btn-success:hover{opacity:.8}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .accordion{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
-.accordion-header{padding:14px 16px;background:var(--surface2);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:600;user-select:none}
-.accordion-header:hover{background:var(--border)}
+.accordion-header{padding:14px 16px;background:var(--surface2);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:600;user-select:none;transition:background .2s,padding-left .2s}
+.accordion-header:hover{background:var(--border);padding-left:22px}
 .accordion-header .arrow{transition:transform .2s}
 .accordion.open .arrow{transform:rotate(90deg)}
 .accordion-body{display:none;padding:16px;background:var(--surface)}
@@ -94,10 +94,16 @@ footer{text-align:center;padding:24px;color:var(--text-muted);font-size:.8em;bor
 .gap-item .gap-id{font-weight:700;color:var(--accent)}.gap-item .gap-weight{float:right;color:var(--red);font-weight:700}
 @media(max-width:600px){.control-row{flex-direction:column}.control-status{min-width:auto;width:100%}.control-id{min-width:auto}}
 .start-over{position:fixed;bottom:20px;right:20px;z-index:50}
+.save-indicator{font-size:.75em;color:var(--green);opacity:0;transition:opacity .3s}
+.save-indicator.show{opacity:1}
+.auto-pop-hint{font-size:.8em;color:var(--text-muted);margin-top:4px;font-style:italic}
+.tooltip-wrap{position:relative;display:inline-block}
+.tooltip-wrap .tooltip-text{visibility:hidden;background:var(--surface);color:var(--text);padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);font-size:.8em;position:absolute;bottom:125%;left:50%;transform:translateX(-50%);white-space:nowrap;z-index:10;opacity:0;transition:opacity .2s}
+.tooltip-wrap:hover .tooltip-text{visibility:visible;opacity:1}
 </style>
 </head>
 <body>
-<header><div class="container"><div><div class="logo">🛡️ Cyber Ops — <span>CMMC Level 2 SSP Builder</span></div><div class="brand-sub">By <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a></div></div><button class="btn btn-danger start-over" onclick="startOver()">Start Over</button></div></header>
+<header><div class="container"><div><div class="logo">🛡️ Cyber Ops — <span>CMMC Level 2 SSP Builder</span></div><div class="brand-sub">By <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a></div></div><span class="save-indicator" id="saveIndicator">✓ Saved</span><button class="btn btn-danger start-over" onclick="startOver()">Start Over</button></div></header>
 <div class="progress-bar"><div class="container"><div class="progress-track"><div class="progress-fill" id="progressFill"></div></div><div class="phase-labels" id="phaseLabels"></div></div></div>
 <div class="container" id="app"></div>
 <footer>© 2026 <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a> — CMMC Level 2 SSP Builder. All assessment data stays in your browser.</footer>
@@ -237,10 +243,34 @@ const FAMILIES = {AC:"Access Control",AT:"Awareness & Training",AU:"Audit & Acco
 const PHASE_NAMES = ["Readiness","Organization","Technical","Policies","Controls","Results","Documents"];
 const STATUS_OPTIONS = [{v:"implemented",l:"✅ Implemented"},{v:"partial",l:"🟡 Partial"},{v:"not_implemented",l:"❌ Not Implemented"},{v:"inherited",l:"🔄 Inherited"}];
 
-let state = JSON.parse(localStorage.getItem('cmmc_state')||'null') || {phase:0,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},searchFilter:""};
-function save(){localStorage.setItem('cmmc_state',JSON.stringify(state))}
-function startOver(){if(confirm('Reset all progress? This cannot be undone.')){localStorage.removeItem('cmmc_state');state={phase:0,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},searchFilter:""};render()}}
-function goPhase(n){state.phase=n;save();render()}
+const _defaultState={phase:0,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},searchFilter:""};
+const _saved=JSON.parse(localStorage.getItem('cmmc_state')||'null');
+let state;
+if(_saved&&_saved.phase>0){
+  if(confirm('Resume previous session? (Phase '+(parseInt(_saved.phase)+1)+' of 7)\n\nClick Cancel to start fresh.')){state=_saved}
+  else{localStorage.removeItem('cmmc_state');state={..._defaultState}}
+}else{state=_saved||{..._defaultState}}
+function save(){localStorage.setItem('cmmc_state',JSON.stringify(state));const ind=document.getElementById('saveIndicator');if(ind){ind.classList.add('show');clearTimeout(window._saveTm);window._saveTm=setTimeout(()=>ind.classList.remove('show'),2000)}}
+function startOver(){if(confirm('Are you sure? This will erase all progress and data.\n\nThis action cannot be undone.')){localStorage.removeItem('cmmc_state');state={phase:0,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},searchFilter:""};render()}}
+function checkPhaseEmpty(phase){
+  if(phase===2){
+    const subs=[state.p2a,state.p2b,state.p2c,state.p2d,state.p2e,state.p2f,state.p2g];
+    const filled=subs.some(s=>Object.values(s).some(v=>v&&(Array.isArray(v)?v.length>0:v!=='')));
+    return !filled;
+  }
+  if(phase===3){
+    const vals=Object.values(state.p3);
+    return vals.length===0||vals.every(v=>!v||v==='');
+  }
+  return false;
+}
+function goPhase(n){
+  const cur=state.phase;
+  if(n>cur&&(cur===2||cur===3)&&checkPhaseEmpty(cur)){
+    if(!confirm('Some fields are empty — continue anyway?'))return;
+  }
+  state.phase=n;save();render();
+}
 function $(s,p){return(p||document).querySelector(s)}
 function $$(s,p){return[...(p||document).querySelectorAll(s)]}
 
@@ -607,7 +637,11 @@ function nav(phase){
   if(phase<6){
     const nextPhase=phase+1;
     const label=phase===3?'Auto-Populate & Continue →':'Next →';
-    h+=`<button class="btn btn-primary" onclick="${phase===3?'autoPopulate();':''}goPhase(${nextPhase})">${label}</button>`;
+    if(phase===3){
+      h+=`<div style="text-align:right"><div class="tooltip-wrap"><button class="btn btn-primary" onclick="autoPopulate();goPhase(${nextPhase})">${label}</button><span class="tooltip-text">Uses your Phase 2 & 3 answers to pre-set control statuses in Phase 4</span></div><div class="auto-pop-hint">ℹ️ Pre-fills Phase 4 controls based on your Phase 2 & 3 answers</div></div>`;
+    } else {
+      h+=`<button class="btn btn-primary" onclick="goPhase(${nextPhase})">${label}</button>`;
+    }
   }
   h+='</div>';
   return h;
