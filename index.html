@@ -103,7 +103,7 @@ footer{text-align:center;padding:24px;color:var(--text-muted);font-size:.8em;bor
 .control-note{margin-top:6px;display:none}
 .control-note.open{display:block}
 .control-note textarea{width:100%;min-height:50px;padding:8px;font-size:.8em}
-.rev3-banner{background:rgba(210,153,34,.1);border:1px solid var(--yellow);border-radius:var(--radius);padding:14px 18px;margin-bottom:20px;color:var(--yellow);font-size:.9em}
+
 .auto-pop-hint{font-size:.8em;color:var(--text-muted);margin-top:4px;font-style:italic}
 .tooltip-wrap{position:relative;display:inline-block}
 .tooltip-wrap .tooltip-text{visibility:hidden;background:var(--surface);color:var(--text);padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:.8em;position:absolute;bottom:125%;left:50%;transform:translateX(-50%);white-space:nowrap;z-index:1000;opacity:0;transition:opacity .3s ease, visibility .3s ease;transition-delay:.2s;pointer-events:none;max-width:300px;white-space:normal}
@@ -177,7 +177,7 @@ footer{text-align:center;padding:24px;color:var(--text-muted);font-size:.8em;bor
 </style>
 </head>
 <body>
-<header id="mainHeader"><div class="container"><div><div class="logo">🛡️ Cyber Ops — <span>CMMC Level 2 SSP Builder</span></div><div class="brand-sub">By <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a></div></div><div id="headerControls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:6px;font-size:.8em;cursor:pointer;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)"><span id="revLabel">Rev 2</span><input type="checkbox" id="revToggle" onchange="toggleRev()" style="accent-color:var(--accent)"><span style="color:var(--text-muted)">Rev 3</span></label><span class="save-indicator" id="saveIndicator">✓ Saved</span><button class="btn btn-danger start-over" onclick="startOver()">Start Over</button></div></div></header>
+<header id="mainHeader"><div class="container"><div><div class="logo">🛡️ Cyber Ops — <span>CMMC Level 2 SSP Builder</span></div><div class="brand-sub">By <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a></div></div><div id="headerControls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="save-indicator" id="saveIndicator">✓ Saved</span><button class="btn btn-danger start-over" onclick="startOver()">Start Over</button></div></div></header>
 <div class="progress-bar"><div class="container"><div class="progress-track"><div class="progress-fill" id="progressFill"></div></div><div class="phase-labels" id="phaseLabels"></div></div></div>
 <div class="container" id="app"></div>
 <footer>© 2026 <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a> — CMMC Level 2 SSP Builder. All assessment data stays in your browser.</footer>
@@ -317,7 +317,7 @@ const FAMILIES = {AC:"Access Control",AT:"Awareness & Training",AU:"Audit & Acco
 const PHASE_NAMES = ["Welcome","Readiness","Organization","Technical","Policies","Controls","Results","Documents"];
 const STATUS_OPTIONS = [{v:"implemented",l:"✅ Implemented"},{v:"partial",l:"🟡 Partial"},{v:"not_implemented",l:"❌ Not Implemented"},{v:"inherited",l:"🔄 Inherited"},{v:"na",l:"⬜ N/A"}];
 
-const _defaultState={phase:-1,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},nistRev:'rev2',searchFilter:""};
+const _defaultState={phase:-1,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},searchFilter:""};
 const _saved=JSON.parse(localStorage.getItem('cmmc_state')||'null');
 let state;
 if(_saved&&_saved.phase>=0){
@@ -326,7 +326,7 @@ if(_saved&&_saved.phase>=0){
   else{localStorage.removeItem('cmmc_state');state={..._defaultState}}
 }else{state=_saved||{..._defaultState}}
 function save(){localStorage.setItem('cmmc_state',JSON.stringify(state));const ind=document.getElementById('saveIndicator');if(ind){ind.classList.add('show');clearTimeout(window._saveTm);window._saveTm=setTimeout(()=>ind.classList.remove('show'),2000)}}
-function startOver(){if(confirm('Are you sure? This will erase all progress and data.\n\nThis action cannot be undone.')){localStorage.removeItem('cmmc_state');state={phase:-1,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},nistRev:'rev2',searchFilter:""};render()}}
+function startOver(){if(confirm('Are you sure? This will erase all progress and data.\n\nThis action cannot be undone.')){localStorage.removeItem('cmmc_state');state={phase:-1,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},searchFilter:""};render()}}
 function checkPhaseEmpty(phase){
   if(phase===2){
     const subs=[state.p2a,state.p2b,state.p2c,state.p2d,state.p2e,state.p2f,state.p2g];
@@ -467,7 +467,7 @@ function render(){
   
   const renderers=[renderLanding,renderPhase0,renderPhase1,renderPhase2,renderPhase3,renderPhase4,renderPhase5,renderPhase6];
   app.innerHTML='<div class="phase active">'+renderers[state.phase + 1]()+'</div>';
-  bindEvents();initRevToggle();
+  bindEvents();
   
   // Render charts for dashboard
   if(state.phase === 4) {
@@ -686,9 +686,7 @@ function renderPhase3(){
 }
 
 function renderPhase4(){
-  let h='';
-  if(state.nistRev==='rev3'){h+=`<div class="rev3-banner">ℹ️ <strong>NIST 800-171 Rev 3 — 152 controls</strong> — expanded security requirements for enhanced cybersecurity posture.</div>`}
-  h+=`<h2>Phase 4: Control Assessment</h2><p class="subtitle">Assess all 110 NIST 800-171 Rev 2 controls. Statuses were pre-populated from your earlier answers — review and adjust as needed.</p>`;
+  let h=`<h2>Phase 4: Control Assessment</h2><p class="subtitle">Assess all 110 NIST 800-171 Rev 2 controls. Statuses were pre-populated from your earlier answers — review and adjust as needed.</p>`;
   h+=`<div class="search-box"><input type="text" id="ctrlSearch" placeholder="🔍 Search controls by ID, name, or description..." value="${state.searchFilter||''}"></div>`;
   const familyKeys=Object.keys(FAMILIES);
   familyKeys.forEach(fk=>{
@@ -1482,14 +1480,11 @@ function genDetailedPOAM(){
 }
 
 function toggleNote(id){const el=document.getElementById('note-'+id);if(el)el.classList.toggle('open')}
-function toggleRev(){
-  const checked=document.getElementById('revToggle').checked;
-  state.nistRev=checked?'rev3':'rev2';save();render();
-}
-function initRevToggle(){const el=document.getElementById('revToggle');if(el)el.checked=state.nistRev==='rev3'}
+
+
 
 // Init
-render();initRevToggle();
+render();
 </script>
 </body>
 </html>
