@@ -177,7 +177,7 @@ footer{text-align:center;padding:24px;color:var(--text-muted);font-size:.8em;bor
 </style>
 </head>
 <body>
-<header id="mainHeader"><div class="container"><div><div class="logo">🛡️ Cyber Ops — <span>CMMC Level 2 SSP Builder</span></div><div class="brand-sub">By <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a></div></div><div id="headerControls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="save-indicator" id="saveIndicator">✓ Saved</span><button class="btn btn-danger start-over" onclick="startOver()">Start Over</button></div></div></header>
+<header id="mainHeader"><div class="container"><div><div class="logo" id="headerLogo">🛡️ Cyber Ops — <span>CMMC SSP Builder</span></div><div class="brand-sub">By <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a></div></div><div id="headerControls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div id="levelSwitch" style="display:none;gap:8px;margin-right:12px;"></div><span class="save-indicator" id="saveIndicator">✓ Saved</span><button class="btn btn-danger start-over" onclick="startOver()">Start Over</button></div></div></header>
 <div class="progress-bar"><div class="container"><div class="progress-track"><div class="progress-fill" id="progressFill"></div></div><div class="phase-labels" id="phaseLabels"></div></div></div>
 <div class="container" id="app"></div>
 <footer>© 2026 <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a> — CMMC Level 2 SSP Builder. All assessment data stays in your browser.</footer>
@@ -186,6 +186,27 @@ footer{text-align:center;padding:24px;color:var(--text-muted);font-size:.8em;bor
 // ============================================================
 // DATA: All 110 NIST 800-171 Rev 2 controls
 // ============================================================
+// CMMC Level 1 Controls (17 FAR 52.204-21 practices)
+const LEVEL1_CONTROLS = [
+{id:"AC.L1-3.1.1",family:"AC",title:"Authorized Access Control",desc:"Limit system access to authorized users, processes acting on behalf of authorized users, and devices (including other systems).",weight:1},
+{id:"AC.L1-3.1.2",family:"AC",title:"Transaction & Function Control",desc:"Limit system access to the types of transactions and functions that authorized users are permitted to execute.",weight:1},
+{id:"AC.L1-3.1.20",family:"AC",title:"External Connections",desc:"Verify and control/limit connections to and use of external systems.",weight:1},
+{id:"AC.L1-3.1.22",family:"AC",title:"Publicly Accessible Content",desc:"Control information posted or processed on publicly accessible systems.",weight:1},
+{id:"IA.L1-3.5.1",family:"IA",title:"Identification",desc:"Identify system users, processes acting on behalf of users, and devices.",weight:1},
+{id:"IA.L1-3.5.2",family:"IA",title:"Authentication",desc:"Authenticate (or verify) the identities of users, processes, or devices, as a prerequisite to allowing access to organizational systems.",weight:1},
+{id:"MP.L1-3.8.3",family:"MP",title:"Media Sanitization",desc:"Sanitize or destroy system media containing FCI before disposal or release for reuse.",weight:1},
+{id:"PE.L1-3.10.1",family:"PE",title:"Physical Access Limitation",desc:"Limit physical access to organizational systems, equipment, and the respective operating environments to authorized individuals.",weight:1},
+{id:"PE.L1-3.10.3",family:"PE",title:"Escort Visitors",desc:"Escort visitors and monitor visitor activity.",weight:1},
+{id:"PE.L1-3.10.4",family:"PE",title:"Physical Access Logs",desc:"Maintain audit logs of physical access.",weight:1},
+{id:"PE.L1-3.10.5",family:"PE",title:"Physical Access Devices",desc:"Control and manage physical access devices.",weight:1},
+{id:"SC.L1-3.13.1",family:"SC",title:"Boundary Protection",desc:"Monitor, control, and protect communications (i.e., information transmitted or received by organizational systems) at the external boundaries and key internal boundaries of organizational systems.",weight:1},
+{id:"SC.L1-3.13.5",family:"SC",title:"Public-Access System Separation",desc:"Implement subnetworks for publicly accessible system components that are physically or logically separated from internal networks.",weight:1},
+{id:"SI.L1-3.14.1",family:"SI",title:"Flaw Remediation",desc:"Identify, report, and correct system flaws in a timely manner.",weight:1},
+{id:"SI.L1-3.14.2",family:"SI",title:"Malicious Code Protection",desc:"Provide protection from malicious code at designated locations within organizational systems.",weight:1},
+{id:"SI.L1-3.14.4",family:"SI",title:"Update Malicious Code Protection",desc:"Update malicious code protection mechanisms when new releases are available.",weight:1},
+{id:"SI.L1-3.14.5",family:"SI",title:"System & File Scanning",desc:"Perform periodic scans of organizational systems and real-time scans of files from external sources as files are downloaded, opened, or executed.",weight:1}
+];
+
 const CONTROLS = [
 // ACCESS CONTROL (AC) — 22
 {id:"AC.L2-3.1.1",family:"AC",title:"Authorized Access Control",desc:"Limit system access to authorized users, processes acting on behalf of authorized users, and devices (including other systems).",weight:5},
@@ -317,7 +338,7 @@ const FAMILIES = {AC:"Access Control",AT:"Awareness & Training",AU:"Audit & Acco
 const PHASE_NAMES = ["Welcome","Readiness","Organization","Technical","Policies","Controls","Results","Documents"];
 const STATUS_OPTIONS = [{v:"implemented",l:"✅ Implemented"},{v:"partial",l:"🟡 Partial"},{v:"not_implemented",l:"❌ Not Implemented"},{v:"inherited",l:"🔄 Inherited"},{v:"na",l:"⬜ N/A"}];
 
-const _defaultState={phase:-1,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},searchFilter:""};
+const _defaultState={phase:-1,screeningPhase:0,selectedLevel:null,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},searchFilter:""};
 const _saved=JSON.parse(localStorage.getItem('cmmc_state')||'null');
 let state;
 if(_saved&&_saved.phase>=0){
@@ -326,7 +347,7 @@ if(_saved&&_saved.phase>=0){
   else{localStorage.removeItem('cmmc_state');state={..._defaultState}}
 }else{state=_saved||{..._defaultState}}
 function save(){localStorage.setItem('cmmc_state',JSON.stringify(state));const ind=document.getElementById('saveIndicator');if(ind){ind.classList.add('show');clearTimeout(window._saveTm);window._saveTm=setTimeout(()=>ind.classList.remove('show'),2000)}}
-function startOver(){if(confirm('Are you sure? This will erase all progress and data.\n\nThis action cannot be undone.')){localStorage.removeItem('cmmc_state');state={phase:-1,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},searchFilter:""};render()}}
+function startOver(){if(confirm('Are you sure? This will erase all progress and data.\n\nThis action cannot be undone.')){localStorage.removeItem('cmmc_state');state={phase:-1,screeningPhase:0,selectedLevel:null,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},searchFilter:""};render()}}
 function checkPhaseEmpty(phase){
   if(phase===2){
     const subs=[state.p2a,state.p2b,state.p2c,state.p2d,state.p2e,state.p2f,state.p2g];
@@ -416,10 +437,79 @@ function autoPopulate(){
 // ============================================================
 // SPRS SCORE
 // ============================================================
+// ============================================================
+// SCREENING FLOW FUNCTIONS
+// ============================================================
+function handleScreeningQ1() {
+  const selected = document.querySelector('input[name="orgType"]:checked');
+  if(!selected) {
+    alert('Please select an option');
+    return;
+  }
+  
+  if(selected.value === 'no_federal') {
+    state.screeningPhase = 1;
+  } else {
+    state.screeningPhase = 2;
+  }
+  save();
+  render();
+}
+
+function handleScreeningQ2() {
+  const selected = document.querySelector('input[name="cuiHandling"]:checked');
+  if(!selected) {
+    alert('Please select an option');
+    return;
+  }
+  
+  if(selected.value === 'yes') {
+    selectLevel(2);
+  } else if(selected.value === 'fci_only') {
+    selectLevel(1);
+  } else {
+    state.screeningPhase = 3;
+    save();
+    render();
+  }
+}
+
+function selectLevel(level) {
+  state.selectedLevel = level;
+  state.screeningPhase = 4;
+  save();
+  render();
+}
+
+function startAssessment(level) {
+  state.selectedLevel = level;
+  state.phase = 0;
+  save();
+  render();
+}
+
+function resetScreening() {
+  state.screeningPhase = 0;
+  state.selectedLevel = null;
+  save();
+  render();
+}
+
+function switchLevel(newLevel) {
+  if(confirm(`Switch to CMMC Level ${newLevel}? This will reset your current progress.`)) {
+    state.selectedLevel = newLevel;
+    state.controls = {};
+    state.controlNotes = {};
+    save();
+    render();
+  }
+}
+
 function calcScore(){
   let maxScore=0;let earned=0;
   const gaps=[];
-  CONTROLS.forEach(ctrl=>{
+  const controlSet = state.selectedLevel === 1 ? LEVEL1_CONTROLS : CONTROLS;
+  controlSet.forEach(ctrl=>{
     const s=state.controls[ctrl.id];
     if(s==='na')return; // N/A excluded entirely
     maxScore+=ctrl.weight;
@@ -427,14 +517,26 @@ function calcScore(){
     else if(s==='partial'){earned+=Math.floor(ctrl.weight/2);gaps.push(ctrl)}
     else{earned+=ctrl.weight} // implemented or inherited
   });
-  // SPRS = 110 minus total weight lost; N/A controls removed from denominator
-  const totalWeight=CONTROLS.reduce((a,c)=>a+c.weight,0);
-  const naWeight=CONTROLS.filter(c=>state.controls[c.id]==='na').reduce((a,c)=>a+c.weight,0);
-  const applicableMax=totalWeight-naWeight;
-  const lost=applicableMax-earned;
-  const score=110-lost;
+  
+  // Score calculation differs by level
+  let score;
+  if(state.selectedLevel === 1) {
+    // Level 1: Simple pass/fail (all 17 implemented = ready)
+    const totalWeight=controlSet.reduce((a,c)=>a+c.weight,0);
+    const naWeight=controlSet.filter(c=>state.controls[c.id]==='na').reduce((a,c)=>a+c.weight,0);
+    const applicableMax=totalWeight-naWeight;
+    score = applicableMax === earned ? 100 : Math.round((earned / applicableMax) * 100);
+  } else {
+    // Level 2: SPRS = 110 minus total weight lost
+    const totalWeight=controlSet.reduce((a,c)=>a+c.weight,0);
+    const naWeight=controlSet.filter(c=>state.controls[c.id]==='na').reduce((a,c)=>a+c.weight,0);
+    const applicableMax=totalWeight-naWeight;
+    const lost=applicableMax-earned;
+    score=110-lost;
+  }
   gaps.sort((a,b)=>b.weight-a.weight);
-  return{score,gaps,maxScore:applicableMax,naCount:CONTROLS.filter(c=>state.controls[c.id]==='na').length};
+  const naCount = controlSet.filter(c=>state.controls[c.id]==='na').length;
+  return{score,gaps,maxScore,naCount};
 }
 
 // ============================================================
@@ -442,6 +544,32 @@ function calcScore(){
 // ============================================================
 function render(){
   const app=$('#app');
+  
+  // Update header logo with current level
+  const headerLogo = document.getElementById('headerLogo');
+  if(headerLogo) {
+    if(state.selectedLevel) {
+      headerLogo.innerHTML = `🛡️ Cyber Ops — <span>CMMC Level ${state.selectedLevel} SSP Builder</span>`;
+    } else {
+      headerLogo.innerHTML = `🛡️ Cyber Ops — <span>CMMC SSP Builder</span>`;
+    }
+  }
+  
+  // Update level switch controls
+  const levelSwitch = document.getElementById('levelSwitch');
+  if(levelSwitch) {
+    if(state.selectedLevel && state.phase >= 0) {
+      levelSwitch.style.display = 'flex';
+      levelSwitch.innerHTML = `
+        <span style="font-size:0.8em;color:var(--text-muted);">Level:</span>
+        <button class="btn btn-secondary" style="padding:4px 8px;font-size:0.8em;" onclick="switchLevel(1)" ${state.selectedLevel === 1 ? 'disabled' : ''}>L1</button>
+        <button class="btn btn-secondary" style="padding:4px 8px;font-size:0.8em;" onclick="switchLevel(2)" ${state.selectedLevel === 2 ? 'disabled' : ''}>L2</button>
+      `;
+    } else {
+      levelSwitch.style.display = 'none';
+    }
+  }
+  
   const actualPhase = Math.max(0, state.phase + 1);
   const pct=Math.round((actualPhase/7)*100);
   $('#progressFill').style.width=pct+'%';
@@ -466,7 +594,14 @@ function render(){
   }
   
   const renderers=[renderLanding,renderPhase0,renderPhase1,renderPhase2,renderPhase3,renderPhase4,renderPhase5,renderPhase6];
-  app.innerHTML='<div class="phase active">'+renderers[state.phase + 1]()+'</div>';
+  
+  // Redirect to Level 1 assessment if Level 1 selected and at controls phase
+  let phaseIndex = state.phase + 1;
+  if(state.selectedLevel === 1 && state.phase === 4) {
+    app.innerHTML='<div class="phase active">'+renderLevel1Assessment()+'</div>';
+  } else {
+    app.innerHTML='<div class="phase active">'+renderers[phaseIndex]()+'</div>';
+  }
   bindEvents();
   
   // Render charts for dashboard
@@ -476,37 +611,169 @@ function render(){
 }
 
 function renderLanding(){
-  return `
-    <div class="landing-page">
-      <h1 class="hero-title">CMMC Level 2 Self-Assessment Tool</h1>
-      <p class="hero-desc">Walk through all 110 NIST 800-171 controls, generate your SPRS score, and export a ready-to-submit SSP package.</p>
-      
-      <div class="hero-features">
-        <div class="feature-card">
-          <div class="feature-icon">🔒</div>
-          <div class="feature-title">Free. Private.</div>
-          <div>Everything stays in your browser. No data leaves your device.</div>
+  const s = state.screeningPhase || 0;
+  
+  if(s === 0) {
+    // Initial landing with screening question 1
+    return `
+      <div class="landing-page">
+        <h1 class="hero-title">CMMC Self-Assessment Tool</h1>
+        <p class="hero-desc">Determine your CMMC level requirement and build your compliance package.</p>
+        
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin:40px 0;max-width:600px;margin-left:auto;margin-right:auto;">
+          <h3 style="margin-top:0;color:var(--accent);">What best describes your organization?</h3>
+          <div class="radio-group" style="flex-direction:column;align-items:flex-start;">
+            <label style="width:100%;justify-content:flex-start;"><input type="radio" name="orgType" value="contracts"> We have federal contracts or subcontracts</label>
+            <label style="width:100%;justify-content:flex-start;"><input type="radio" name="orgType" value="pursuing"> We're pursuing federal contracts</label>
+            <label style="width:100%;justify-content:flex-start;"><input type="radio" name="orgType" value="no_federal"> We don't do federal work</label>
+          </div>
+          <div style="margin-top:16px;text-align:center;">
+            <button class="btn btn-primary" onclick="handleScreeningQ1()">Continue</button>
+          </div>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">📊</div>
-          <div class="feature-title">Complete Assessment</div>
-          <div>All 110 NIST 800-171 Rev 2 controls with automated SPRS scoring.</div>
+        
+        <div class="hero-features">
+          <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <div class="feature-title">Free. Private.</div>
+            <div>Everything stays in your browser. No data leaves your device.</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <div class="feature-title">Level 1 & Level 2</div>
+            <div>Supports both CMMC Level 1 (17 controls) and Level 2 (110 controls).</div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📄</div>
+            <div class="feature-title">Export Ready</div>
+            <div>Generate SSP, POA&M, and compliance documentation instantly.</div>
+          </div>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">📄</div>
-          <div class="feature-title">Export Ready</div>
-          <div>Generate SSP, POA&M, and compliance documentation instantly.</div>
+        
+        <div class="branding">
+          <div>By <a href="https://mirzayanllc.com/" target="_blank" style="color: var(--accent);">Mirzayan LLC</a></div>
+          <div style="margin-top: 8px; font-size: 0.8em;">CMMC SSP Builder — Cybersecurity Compliance Made Simple</div>
+          <div style="margin-top: 12px; padding: 12px; background: var(--surface); border-radius: var(--radius); font-size: 0.85em;">
+            💡 <strong>Need help?</strong> Mirzayan LLC offers CMMC readiness consultations. <a href="https://mirzayanllc.com" target="_blank" style="color: var(--accent);">Learn more</a>
+          </div>
         </div>
       </div>
-      
-      <button class="start-btn" onclick="goPhase(0)">Start Assessment</button>
-      
-      <div class="branding">
-        <div>By <a href="https://mirzayanllc.com/" target="_blank" style="color: var(--accent);">Mirzayan LLC</a></div>
-        <div style="margin-top: 8px; font-size: 0.8em;">CMMC Level 2 SSP Builder — Cybersecurity Compliance Made Simple</div>
+    `;
+  } else if(s === 1) {
+    // No federal work message
+    return `
+      <div class="landing-page">
+        <h1 class="hero-title">CMMC Information</h1>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin:40px 0;max-width:600px;margin-left:auto;margin-right:auto;text-align:center;">
+          <div style="font-size:4em;margin-bottom:16px;">ℹ️</div>
+          <h3 style="margin-top:0;color:var(--accent);">CMMC Certification Requirements</h3>
+          <p style="color:var(--text-muted);line-height:1.6;">CMMC certification is required for federal contractors and subcontractors. If you're exploring federal work opportunities, we can help you get ready.</p>
+          <div style="margin:24px 0;">
+            <a href="https://mirzayanllc.com" target="_blank" class="btn btn-primary">Contact Mirzayan LLC for Consultation</a>
+          </div>
+          <button class="btn btn-secondary" onclick="resetScreening()">← Back to Questions</button>
+        </div>
       </div>
-    </div>
-  `;
+    `;
+  } else if(s === 2) {
+    // CUI handling question
+    return `
+      <div class="landing-page">
+        <h1 class="hero-title">CMMC Level Determination</h1>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin:40px 0;max-width:600px;margin-left:auto;margin-right:auto;">
+          <h3 style="margin-top:0;color:var(--accent);">Do you handle Controlled Unclassified Information (CUI)?</h3>
+          <div style="background:var(--surface);padding:12px;border-radius:var(--radius);margin:12px 0;font-size:0.9em;color:var(--text-muted);">
+            <strong>ℹ️ What is CUI?</strong><br>
+            CUI includes technical drawings, export-controlled data, ITAR, privacy data (PII/PHI), law enforcement info, or anything marked CUI by the government. If your contract mentions DFARS 252.204-7012, you likely handle CUI.
+          </div>
+          <div class="radio-group" style="flex-direction:column;align-items:flex-start;">
+            <label style="width:100%;justify-content:flex-start;"><input type="radio" name="cuiHandling" value="yes"> Yes, we handle CUI</label>
+            <label style="width:100%;justify-content:flex-start;"><input type="radio" name="cuiHandling" value="fci_only"> No, but we handle Federal Contract Information (FCI)</label>
+            <label style="width:100%;justify-content:flex-start;"><input type="radio" name="cuiHandling" value="not_sure"> I'm not sure</label>
+          </div>
+          <div style="margin-top:16px;text-align:center;">
+            <button class="btn btn-primary" onclick="handleScreeningQ2()">Continue</button>
+            <button class="btn btn-secondary" onclick="resetScreening()" style="margin-left:8px;">← Back</button>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if(s === 3) {
+    // Not sure - show comparison
+    return `
+      <div class="landing-page">
+        <h1 class="hero-title">FCI vs CUI Comparison</h1>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin:40px 0;max-width:700px;margin-left:auto;margin-right:auto;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+            <div style="background:var(--surface);padding:16px;border-radius:var(--radius);">
+              <h4 style="color:var(--green);margin-top:0;">Federal Contract Information (FCI)</h4>
+              <ul style="font-size:0.9em;color:var(--text-muted);padding-left:16px;">
+                <li>Basic contract info (SOW, pricing)</li>
+                <li>Contractor contact details</li>
+                <li>Performance data</li>
+                <li>Administrative information</li>
+              </ul>
+              <div style="text-align:center;margin-top:12px;font-weight:bold;">
+                → CMMC Level 1 (17 controls)
+              </div>
+            </div>
+            <div style="background:var(--surface);padding:16px;border-radius:var(--radius);">
+              <h4 style="color:var(--yellow);margin-top:0;">Controlled Unclassified Information (CUI)</h4>
+              <ul style="font-size:0.9em;color:var(--text-muted);padding-left:16px;">
+                <li>Technical data/drawings</li>
+                <li>Export-controlled information</li>
+                <li>ITAR data</li>
+                <li>Privacy data (PII/PHI)</li>
+                <li>Anything marked "CUI"</li>
+              </ul>
+              <div style="text-align:center;margin-top:12px;font-weight:bold;">
+                → CMMC Level 2 (110 controls)
+              </div>
+            </div>
+          </div>
+          <div style="text-align:center;padding:16px;background:var(--surface);border-radius:var(--radius);margin-bottom:20px;">
+            <strong>Need help figuring it out?</strong><br>
+            <a href="https://mirzayanllc.com" target="_blank" style="color:var(--accent);">Mirzayan LLC offers CUI scoping consultations</a>
+          </div>
+          <div style="text-align:center;">
+            <button class="btn btn-success" onclick="selectLevel(1)">I'll try Level 1 for now</button>
+            <button class="btn btn-primary" onclick="selectLevel(2)" style="margin-left:8px;">I'll try Level 2</button>
+          </div>
+          <div style="text-align:center;margin-top:12px;">
+            <button class="btn btn-secondary" onclick="state.screeningPhase=2;render()">← Back to CUI Question</button>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if(s === 4) {
+    // Level selected, show confirmation
+    const level = state.selectedLevel;
+    const controlCount = level === 1 ? 17 : 110;
+    const desc = level === 1 ? 'Basic safeguarding requirements for Federal Contract Information' : 'Enhanced protections for Controlled Unclassified Information';
+    
+    return `
+      <div class="landing-page">
+        <h1 class="hero-title">CMMC Level ${level} Assessment</h1>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin:40px 0;max-width:600px;margin-left:auto;margin-right:auto;text-align:center;">
+          <div style="font-size:4em;margin-bottom:16px;">${level === 1 ? '🟢' : '🛡️'}</div>
+          <h3 style="margin-top:0;color:var(--accent);">You need CMMC Level ${level}</h3>
+          <p style="color:var(--text-muted);line-height:1.6;margin-bottom:20px;">${desc}</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0;font-size:0.9em;">
+            <div><strong>${controlCount}</strong><br>Controls</div>
+            <div><strong>${level === 1 ? 'Basic' : 'SPRS'}</strong><br>Scoring</div>
+          </div>
+          <button class="start-btn" onclick="startAssessment(${level})">Start Level ${level} Assessment</button>
+          <div style="margin-top:16px;">
+            <button class="btn btn-secondary" onclick="resetScreening()">← Change Level</button>
+          </div>
+        </div>
+        
+        <div style="margin-top: 32px; padding: 16px; background: var(--surface); border-radius: var(--radius); font-size: 0.9em; text-align: center;">
+          💡 <strong>Need help?</strong> Mirzayan LLC offers CMMC readiness consultations. <a href="https://mirzayanllc.com" target="_blank" style="color: var(--accent);">Contact us</a>
+        </div>
+      </div>
+    `;
+  }
 }
 
 function yn(name,stateObj,key){
@@ -721,19 +988,80 @@ function renderPhase4(){
   return h;
 }
 
+function renderLevel1Assessment(){
+  let h=`<h2>CMMC Level 1 Control Assessment</h2><p class="subtitle">Assess all 17 FAR 52.204-21 practices for Federal Contract Information (FCI) protection.</p>`;
+  h+=`<div style="background:var(--surface);padding:16px;border-radius:var(--radius);margin-bottom:20px;border-left:3px solid var(--green);">
+    <strong>📋 CMMC Level 1 Requirements:</strong> Basic safeguarding of Federal Contract Information (FCI). All 17 controls must be implemented for Level 1 readiness.
+  </div>`;
+  
+  h+=`<div class="search-box"><input type="text" id="ctrlSearch" placeholder="🔍 Search controls by ID, name, or description..." value="${state.searchFilter||''}"></div>`;
+  
+  const familyKeys=[...new Set(LEVEL1_CONTROLS.map(c => c.family))];
+  familyKeys.forEach(fk=>{
+    const fControls=LEVEL1_CONTROLS.filter(c=>c.family===fk);
+    const applicable=fControls.filter(c=>state.controls[c.id]!=='na');
+    const done=applicable.filter(c=>state.controls[c.id]==='implemented'||state.controls[c.id]==='inherited').length;
+    const naC=fControls.length-applicable.length;
+    const pct=applicable.length?Math.round(done/applicable.length*100):100;
+    h+=`<div class="control-family" data-family="${fk}"><div class="family-header" onclick="toggleFamily('${fk}')">
+      <span>${FAMILIES[fk]} (${fk})<span class="completion-pct">${pct}% complete${naC?' · '+naC+' N/A':''}</span></span>
+      <span class="badge">${done}/${applicable.length}</span>
+    </div><div class="family-body">`;
+    fControls.forEach(c=>{
+      const s=state.controls[c.id]||'';
+      const note=state.controlNotes&&state.controlNotes[c.id]||'';
+      const hasNote=note.length>0;
+      h+=`<div class="control-row" data-ctrl-search="${(c.id+' '+c.title+' '+c.desc).toLowerCase()}">
+        <div class="control-id">${c.id}</div>
+        <div class="control-desc"><strong>${c.title}</strong><br>${c.desc}
+          <br><span class="note-toggle" onclick="toggleNote('${c.id}')">${hasNote?'📝 Edit Notes':'+ Add Notes'}</span>
+          <div class="control-note${hasNote?' open':''}" id="note-${c.id}"><textarea data-note="${c.id}" placeholder="Evidence, implementation details, or justification...">${note}</textarea></div>
+        </div>
+        <div class="control-status"><select data-control="${c.id}">
+          <option value="">— Select —</option>
+          ${STATUS_OPTIONS.map(o=>`<option value="${o.v}" ${s===o.v?'selected':''}>${o.l}</option>`).join('')}
+        </select></div>
+      </div>`;
+    });
+    h+=`</div></div>`;
+  });
+  h+=nav(4);
+  return h;
+}
+
 function renderPhase5(){
   const{score,gaps}=calcScore();
-  const cls=score>=80?'green':score>=50?'yellow':'red';
+  const controlSet = state.selectedLevel === 1 ? LEVEL1_CONTROLS : CONTROLS;
+  const isLevel1 = state.selectedLevel === 1;
+  
+  let cls, scoreLabel;
+  if(isLevel1) {
+    cls = score === 100 ? 'green' : score >= 80 ? 'yellow' : 'red';
+    scoreLabel = score === 100 ? 'Level 1 Ready ✅' : `${score}% Complete`;
+  } else {
+    cls = score >= 80 ? 'green' : score >= 50 ? 'yellow' : 'red';
+    scoreLabel = `SPRS Score (out of 110)`;
+  }
+  
   let impl=0,partial=0,notImpl=0,inherited=0,naCount=0;
-  CONTROLS.forEach(c=>{const s=state.controls[c.id];if(s==='implemented')impl++;else if(s==='partial')partial++;else if(s==='inherited')inherited++;else if(s==='na')naCount++;else notImpl++});
+  controlSet.forEach(c=>{const s=state.controls[c.id];if(s==='implemented')impl++;else if(s==='partial')partial++;else if(s==='inherited')inherited++;else if(s==='na')naCount++;else notImpl++});
   
-  let h=`<h2>Executive Summary Dashboard</h2>`;
+  let h=`<h2>CMMC Level ${state.selectedLevel} Dashboard</h2>`;
   
-  // Main SPRS Score with color indicator
+  // Main Score with color indicator
   h+=`<div class="dashboard-summary">
-    <div class="summary-score ${cls}">${score}</div>
-    <div class="summary-label">SPRS Score (out of 110)</div>
+    <div class="summary-score ${cls}">${isLevel1 ? score + '%' : score}</div>
+    <div class="summary-label">${scoreLabel}</div>
   </div>`;
+  
+  if(isLevel1) {
+    h += `<div style="text-align:center;margin-bottom:24px;color:var(--text-muted);font-size:0.9em;">
+      ${score === 100 ? 
+        '🎉 All 17 Level 1 controls implemented! You\'re ready for CMMC Level 1 assessment.' : 
+        `${impl} of ${controlSet.length} controls implemented. ${controlSet.length - impl} remaining for Level 1 readiness.`
+      }
+    </div>`;
+  }
   
   // Dashboard grid with charts
   h+=`<div class="dashboard-grid">
@@ -744,7 +1072,7 @@ function renderPhase5(){
       </div>
     </div>
     <div class="dashboard-card">
-      <h3>Risk Heatmap by Control Family</h3>
+      <h3>${isLevel1 ? 'Control Family Status' : 'Risk Heatmap by Control Family'}</h3>
       <div class="risk-heatmap" id="riskHeatmap"></div>
     </div>
   </div>`;
@@ -766,6 +1094,15 @@ function renderPhase5(){
   // Download section
   h+=`<div class="download-section">
     <button class="btn btn-success" onclick="generatePDF()">📄 Download Executive Report (PDF)</button>
+  </div>`;
+  
+  // CUI Scoping CTA
+  h+=`<div style="margin-top: 32px; padding: 16px; background: var(--surface); border-radius: var(--radius); border-left: 3px solid var(--accent); text-align: center;">
+    <div style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 8px;">💡 <strong>Need Help?</strong></div>
+    <div>Mirzayan LLC offers CMMC readiness consultations, CUI scoping, and assessment preparation.</div>
+    <div style="margin-top: 8px;">
+      <a href="https://mirzayanllc.com" target="_blank" class="btn btn-primary" style="font-size: 0.9em; padding: 8px 16px;">Contact Mirzayan LLC</a>
+    </div>
   </div>`;
   
   h+=nav(5);
@@ -791,7 +1128,7 @@ function fg(label,inner){return`<div class="form-group"><label>${label}</label>$
 function nav(phase){
   let h='<div class="nav-buttons">';
   if(phase>0)h+=`<button class="btn btn-secondary" onclick="goPhase(${phase-1})">← Back</button>`;
-  else if(phase===0)h+=`<button class="btn btn-secondary" onclick="goPhase(-1)">← Back</button>`;
+  else if(phase===0)h+=`<button class="btn btn-secondary" onclick="resetScreening()">← Back to Screening</button>`;
   else h+='<div></div>';
   
   if(phase<5){
@@ -949,9 +1286,10 @@ function renderCharts(){
     const canvas = document.getElementById('statusChart');
     if (canvas) {
       const ctx = canvas.getContext('2d');
+      const controlSet = state.selectedLevel === 1 ? LEVEL1_CONTROLS : CONTROLS;
       
       let impl=0,partial=0,notImpl=0,inherited=0,naCount=0;
-      CONTROLS.forEach(c=>{
+      controlSet.forEach(c=>{
         const s=state.controls[c.id];
         if(s==='implemented')impl++;
         else if(s==='partial')partial++;
@@ -986,9 +1324,12 @@ function renderCharts(){
     // Risk heatmap
     const heatmapEl = document.getElementById('riskHeatmap');
     if (heatmapEl) {
+      const controlSet = state.selectedLevel === 1 ? LEVEL1_CONTROLS : CONTROLS;
+      const familiesInUse = [...new Set(controlSet.map(c => c.family))];
+      
       let heatmapHTML = '';
-      Object.keys(FAMILIES).forEach(fk => {
-        const fc = CONTROLS.filter(c => c.family === fk);
+      familiesInUse.forEach(fk => {
+        const fc = controlSet.filter(c => c.family === fk);
         const issues = fc.filter(c => {
           const s = state.controls[c.id];
           return s === 'not_implemented' || s === 'partial' || !s;
@@ -997,7 +1338,7 @@ function renderCharts(){
         const riskClass = `risk-${riskLevel}`;
         heatmapHTML += `<div class="risk-item ${riskClass}">
           <div>${fk}</div>
-          <div style="font-size:0.8em;margin-top:4px;">${issues.length} gap(s)</div>
+          <div style="font-size:0.8em;margin-top:4px;">${issues.length}/${fc.length} gap(s)</div>
         </div>`;
       });
       heatmapEl.innerHTML = heatmapHTML;
@@ -1301,7 +1642,10 @@ function genExecSummary(){
 
 function genSSP(){
   const o=state.p1;const{score}=calcScore();
-  let md=`# System Security Plan (SSP)\n## CMMC Level 2 — NIST SP 800-171 Rev 2\n\n`;
+  const level = state.selectedLevel || 2;
+  const controlSet = level === 1 ? LEVEL1_CONTROLS : CONTROLS;
+  const standardRef = level === 1 ? 'FAR 52.204-21' : 'NIST SP 800-171 Rev 2';
+  let md=`# System Security Plan (SSP)\n## CMMC Level ${level} — ${standardRef}\n\n`;
   md+=`**Organization:** ${o.legalName||'[TBD]'}\n**Date:** ${new Date().toLocaleDateString()}\n**SPRS Score:** ${score}\n\n---\n\n`;
   md+=`## 1. System Identification\n\n- **Organization:** ${o.legalName||'[TBD]'}\n- **Employees:** ${o.empCount||'[TBD]'}\n- **IT Users:** ${o.itUsers||'[TBD]'}\n- **Locations:** ${o.locations||'[TBD]'}\n- **Primary Function:** ${o.bizFunc||'[TBD]'}\n- **MSP/MSSP:** ${o.useMSP==='yes'?(o.mspName||'Yes'):'No'}\n\n`;
   md+=`## 2. CUI Boundary\n\n- **CUI Types:** ${(o.cuiTypes||[]).join(', ')||'[TBD]'}\n- **Storage:** ${(o.cuiStorage||[]).join(', ')||'[TBD]'}\n- **Entry Points:** ${o.cuiEntry||'[TBD]'}\n- **Processing:** ${o.cuiProcess||'[TBD]'}\n- **Storage Locations:** ${o.cuiStore||'[TBD]'}\n- **Exit Points:** ${o.cuiExit||'[TBD]'}\n- **Network Separation:** ${o.netSep||'[TBD]'}\n\n`;
@@ -1311,9 +1655,10 @@ function genSSP(){
   md+=`### Network Security\n- Firewall: ${state.p2c.firewall||'[TBD]'}\n- Segmentation: ${state.p2c.netSeg||'[TBD]'}\n- VPN: ${state.p2c.vpn||'[TBD]'}\n- IDS/IPS: ${state.p2c.ids||'[TBD]'}\n\n`;
   md+=`### Logging & Monitoring\n- SIEM: ${state.p2d.siem||'[TBD]'}\n- Log Retention: ${state.p2d.logRetention||'[TBD]'}\n- Log Review: ${state.p2d.logReview||'[TBD]'}\n\n`;
   md+=`## 4. Control Implementation\n\n`;
-  Object.keys(FAMILIES).forEach(fk=>{
+  const familiesInUse = [...new Set(controlSet.map(c => c.family))];
+  familiesInUse.forEach(fk=>{
     md+=`### ${FAMILIES[fk]} (${fk})\n\n`;
-    CONTROLS.filter(c=>c.family===fk).forEach(c=>{
+    controlSet.filter(c=>c.family===fk).forEach(c=>{
       const s=state.controls[c.id]||'Not Assessed';
       const statusLabel=STATUS_OPTIONS.find(o=>o.v===s)?.l||'Not Assessed';
       const note=state.controlNotes&&state.controlNotes[c.id]||'';
@@ -1327,9 +1672,12 @@ function genSSP(){
 }
 
 function genMatrix(){
-  let md=`# Control Compliance Matrix\n## CMMC Level 2 — NIST SP 800-171 Rev 2\n\n**Date:** ${new Date().toLocaleDateString()}\n\n`;
+  const level = state.selectedLevel || 2;
+  const controlSet = level === 1 ? LEVEL1_CONTROLS : CONTROLS;
+  const standardRef = level === 1 ? 'FAR 52.204-21' : 'NIST SP 800-171 Rev 2';
+  let md=`# Control Compliance Matrix\n## CMMC Level ${level} — ${standardRef}\n\n**Date:** ${new Date().toLocaleDateString()}\n\n`;
   md+=`| Control ID | Title | Status | Weight |\n|---|---|---|---|\n`;
-  CONTROLS.forEach(c=>{
+  controlSet.forEach(c=>{
     const s=state.controls[c.id]||'Not Assessed';
     const label=STATUS_OPTIONS.find(o=>o.v===s)?.l||'Not Assessed';
     md+=`| ${c.id} | ${c.title} | ${label} | ${c.weight} |\n`;
