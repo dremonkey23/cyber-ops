@@ -335,7 +335,7 @@ const CONTROLS = [
 ];
 
 const FAMILIES = {AC:"Access Control",AT:"Awareness & Training",AU:"Audit & Accountability",CM:"Configuration Management",IA:"Identification & Authentication",IR:"Incident Response",MA:"Maintenance",MP:"Media Protection",PS:"Personnel Security",PE:"Physical Protection",RA:"Risk Assessment",CA:"Security Assessment",SC:"System & Communications Protection",SI:"System & Information Integrity"};
-const PHASE_NAMES = ["Welcome","Readiness","Organization","Technical","Policies","Controls","Results","Documents"];
+const PHASE_NAMES = ["Welcome","Organization","Technical","Policies","Controls","Results","Documents"];
 const STATUS_OPTIONS = [{v:"implemented",l:"✅ Implemented"},{v:"partial",l:"🟡 Partial"},{v:"not_implemented",l:"❌ Not Implemented"},{v:"inherited",l:"🔄 Inherited"},{v:"na",l:"⬜ N/A"}];
 
 const _defaultState={phase:-1,screeningPhase:0,selectedLevel:null,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlsL1:{},controlsL2:{},controlNotes:{},manuallySetControls:{},searchFilter:""};
@@ -383,12 +383,12 @@ window.addEventListener('popstate', function(event) {
 });
 function startOver(){if(confirm('Are you sure? This will erase all progress and data.\n\nThis action cannot be undone.')){localStorage.removeItem('cmmc_state');state={phase:-1,screeningPhase:0,selectedLevel:null,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlsL1:{},controlsL2:{},controlNotes:{},manuallySetControls:{},searchFilter:""};pushHistory(-1,0);render()}}
 function checkPhaseEmpty(phase){
-  if(phase===2){
+  if(phase===1){
     const subs=[state.p2a,state.p2b,state.p2c,state.p2d,state.p2e,state.p2f,state.p2g];
     const filled=subs.some(s=>Object.values(s).some(v=>v&&(Array.isArray(v)?v.length>0:v!=='')));
     return !filled;
   }
-  if(phase===3){
+  if(phase===2){
     const vals=Object.values(state.p3);
     return vals.length===0||vals.every(v=>!v||v==='');
   }
@@ -401,7 +401,7 @@ function goPhase(n){
   if (!savePhaseData()) return;
   
   // Navigation confirmation for empty phases
-  if(n>cur&&(cur===2||cur===3)&&checkPhaseEmpty(cur)){
+  if(n>cur&&(cur===1||cur===2)&&checkPhaseEmpty(cur)){
     if(!confirmNavigation())return;
   }
   
@@ -562,6 +562,9 @@ function resetScreening() {
 function switchLevel(newLevel) {
   const currentLevel = state.selectedLevel;
   
+  // Don't switch if already on that level
+  if (currentLevel === newLevel) return;
+  
   // Save current level data
   if (currentLevel === 1) {
     state.controlsL1 = {...state.controls};
@@ -639,10 +642,18 @@ function render(){
   if(levelSwitch) {
     if(state.selectedLevel && state.phase >= 0) {
       levelSwitch.style.display = 'flex';
+      const l1Active = state.selectedLevel === 1;
+      const l2Active = state.selectedLevel === 2;
       levelSwitch.innerHTML = `
         <span style="font-size:0.8em;color:var(--text-muted);">Level:</span>
-        <button class="btn btn-secondary" style="padding:4px 8px;font-size:0.8em;" onclick="switchLevel(1)" ${state.selectedLevel === 1 ? 'disabled' : ''}>L1</button>
-        <button class="btn btn-secondary" style="padding:4px 8px;font-size:0.8em;" onclick="switchLevel(2)" ${state.selectedLevel === 2 ? 'disabled' : ''}>L2</button>
+        <button class="btn ${l1Active ? 'btn-primary' : 'btn-secondary'}" 
+                style="padding:4px 8px;font-size:0.8em;${l1Active ? 'opacity:1;' : ''}" 
+                onclick="switchLevel(1)" 
+                ${l1Active ? 'disabled' : ''}>L1</button>
+        <button class="btn ${l2Active ? 'btn-primary' : 'btn-secondary'}" 
+                style="padding:4px 8px;font-size:0.8em;${l2Active ? 'opacity:1;' : ''}" 
+                onclick="switchLevel(2)" 
+                ${l2Active ? 'disabled' : ''}>L2</button>
       `;
     } else {
       levelSwitch.style.display = 'none';
@@ -650,7 +661,7 @@ function render(){
   }
   
   const actualPhase = Math.max(0, state.phase + 1);
-  const pct=Math.round((actualPhase/7)*100);
+  const pct=Math.round((actualPhase/6)*100);
   $('#progressFill').style.width=pct+'%';
   
   // Hide progress bar and header controls on landing page
@@ -672,11 +683,11 @@ function render(){
     $('#phaseLabels').innerHTML=labels;
   }
   
-  const renderers=[renderLanding,renderPhase0,renderPhase1,renderPhase2,renderPhase3,renderPhase4,renderPhase5,renderPhase6];
+  const renderers=[renderLanding,renderPhase1,renderPhase2,renderPhase3,renderPhase4,renderPhase5,renderPhase6];
   
   // Redirect to Level 1 assessment if Level 1 selected and at controls phase
   let phaseIndex = state.phase + 1;
-  if(state.selectedLevel === 1 && state.phase === 4) {
+  if(state.selectedLevel === 1 && state.phase === 3) {
     app.innerHTML='<div class="phase active">'+renderLevel1Assessment()+'</div>';
   } else {
     app.innerHTML='<div class="phase active">'+renderers[phaseIndex]()+'</div>';
@@ -873,41 +884,11 @@ function cb(name,opts,vals){
   return h+'</div>';
 }
 
-function renderPhase0(){
-  const d=state.p0;
-  let h=`<h2>Phase 0: Readiness Gate</h2><p class="subtitle">Let's determine if CMMC Level 2 applies to your organization.</p>`;
-  h+=`<div class="form-group"><label>Do you handle CUI (Controlled Unclassified Information)?</label>
-    <div class="radio-group">
-      <label><input type="radio" name="handlesCUI" value="yes" ${d.handlesCUI==='yes'?'checked':''}> Yes</label>
-      <label><input type="radio" name="handlesCUI" value="no" ${d.handlesCUI==='no'?'checked':''}> No</label>
-      <label><input type="radio" name="handlesCUI" value="not_sure" ${d.handlesCUI==='not_sure'?'checked':''}> Not Sure</label>
-    </div></div>`;
-  if(d.handlesCUI==='not_sure'){
-    h+=`<div style="background:var(--surface);padding:16px;border-radius:var(--radius);margin-bottom:16px;border-left:3px solid var(--yellow)">
-      <h3 style="margin-top:0">CUI Discovery Questions</h3>
-      <div class="form-group"><label>Do you receive technical data or engineering drawings from DoD?</label>${yn('cui1',d,'cui1')}</div>
-      <div class="form-group"><label>Do you handle ITAR-controlled information?</label>${yn('cui2',d,'cui2')}</div>
-      <div class="form-group"><label>Do you process contract performance data?</label>${yn('cui3',d,'cui3')}</div>
-      <div class="form-group"><label>Have you seen CUI markings on documents you receive?</label>${yn('cui4',d,'cui4')}</div>
-      <div class="form-group"><label>Does your contract reference DFARS 252.204-7012?</label>${yn('cui5',d,'cui5')}</div>
-    </div>`;
-  }
-  h+=`<div class="form-group"><label>Are you a DoD contractor?</label>${yn('dodContractor',d,'dodContractor')}</div>`;
-  h+=`<div class="form-group"><label>Planning to bid on DoD work within 12 months?</label>${yn('bidding',d,'bidding')}</div>`;
-  h+=`<div class="form-group"><label>Do you have a CAGE code and SAM registration?</label>${yn('cageSam',d,'cageSam')}</div>`;
-  h+=`<div class="form-group"><label>Assessment Goal</label>
-    <div class="radio-group">
-      <label><input type="radio" name="goal" value="self" ${d.goal==='self'?'checked':''}> Self-assessment</label>
-      <label><input type="radio" name="goal" value="c3pao" ${d.goal==='c3pao'?'checked':''}> C3PAO Prep</label>
-      <label><input type="radio" name="goal" value="contract" ${d.goal==='contract'?'checked':''}> Contract Requirement</label>
-    </div></div>`;
-  h+=nav(0);
-  return h;
-}
+
 
 function renderPhase1(){
   const d=state.p1;
-  let h=`<h2>Phase 1: Organization & CUI Scoping</h2><p class="subtitle">Define your organization and CUI boundary.</p>`;
+  let h=`<h2>Phase 0: Organization & CUI Scoping</h2><p class="subtitle">Define your organization and CUI boundary.</p>`;
   h+=fg('Legal Business Name',ti('legalName',d.legalName,'Acme Corp'));
   h+=fg('Employee Count',ni('empCount',d.empCount));
   h+=fg('Number of IT Users',ni('itUsers',d.itUsers));
@@ -922,25 +903,25 @@ function renderPhase1(){
   h+=fg('CUI Storage Locations',ti('cuiStore',d.cuiStore));
   h+=fg('CUI Exit Points',ti('cuiExit',d.cuiExit));
   h+=fg('Network Separation Level',dd('netSep',['Fully Isolated Enclave','Partially Segmented','Flat Network'],d.netSep));
-  h+=nav(1);
+  h+=nav(0);
   return h;
 }
 
 function renderPhase2(){
   const sections=[
-    {key:'2a',title:'2A — Identity & Access Management',render:renderP2A},
-    {key:'2b',title:'2B — Endpoint Security',render:renderP2B},
-    {key:'2c',title:'2C — Network Security',render:renderP2C},
-    {key:'2d',title:'2D — Logging & Monitoring',render:renderP2D},
-    {key:'2e',title:'2E — Vulnerability Management',render:renderP2E},
-    {key:'2f',title:'2F — Incident Response',render:renderP2F},
-    {key:'2g',title:'2G — Physical Security',render:renderP2G}
+    {key:'2a',title:'1A — Identity & Access Management',render:renderP2A},
+    {key:'2b',title:'1B — Endpoint Security',render:renderP2B},
+    {key:'2c',title:'1C — Network Security',render:renderP2C},
+    {key:'2d',title:'1D — Logging & Monitoring',render:renderP2D},
+    {key:'2e',title:'1E — Vulnerability Management',render:renderP2E},
+    {key:'2f',title:'1F — Incident Response',render:renderP2F},
+    {key:'2g',title:'1G — Physical Security',render:renderP2G}
   ];
-  let h=`<h2>Phase 2: Technical Environment</h2><p class="subtitle">Document your security infrastructure across all domains.</p>`;
+  let h=`<h2>Phase 1: Technical Environment</h2><p class="subtitle">Document your security infrastructure across all domains.</p>`;
   sections.forEach(s=>{
     h+=`<div class="accordion" data-acc="${s.key}"><div class="accordion-header" onclick="toggleAcc('${s.key}')">${s.title}<span class="arrow">▶</span></div><div class="accordion-body">${s.render()}</div></div>`;
   });
-  h+=nav(2);
+  h+=nav(1);
   return h;
 }
 function renderP2A(){
@@ -1025,14 +1006,14 @@ function renderPhase3(){
     ['vendorRisk','Vendor risk management'],
     ['poam','POA&M tracking method']
   ];
-  let h=`<h2>Phase 3: Policy & Governance</h2><p class="subtitle">Assess your policy documentation and governance posture.</p>`;
+  let h=`<h2>Phase 2: Policy & Governance</h2><p class="subtitle">Assess your policy documentation and governance posture.</p>`;
   policies.forEach(([k,label])=>{h+=fg(label,yn('p3_'+k,d,k))});
-  h+=nav(3);
+  h+=nav(2);
   return h;
 }
 
 function renderPhase4(){
-  let h=`<h2>Phase 4: Control Assessment</h2><p class="subtitle">Assess all 110 NIST 800-171 Rev 2 controls. Statuses were pre-populated from your earlier answers — review and adjust as needed.</p>`;
+  let h=`<h2>Phase 3: Control Assessment</h2><p class="subtitle">Assess all 110 NIST 800-171 Rev 2 controls. Statuses were pre-populated from your earlier answers — review and adjust as needed.</p>`;
   h+=`<div class="search-box"><input type="text" id="ctrlSearch" placeholder="🔍 Search controls by ID, name, or description..." value="${state.searchFilter||''}"></div>`;
   const familyKeys=Object.keys(FAMILIES);
   familyKeys.forEach(fk=>{
@@ -1063,7 +1044,7 @@ function renderPhase4(){
     });
     h+=`</div></div>`;
   });
-  h+=nav(4);
+  h+=nav(3);
   return h;
 }
 
@@ -1104,7 +1085,7 @@ function renderLevel1Assessment(){
     });
     h+=`</div></div>`;
   });
-  h+=nav(4);
+  h+=nav(3);
   return h;
 }
 
@@ -1125,7 +1106,7 @@ function renderPhase5(){
   let impl=0,partial=0,notImpl=0,inherited=0,naCount=0;
   controlSet.forEach(c=>{const s=state.controls[c.id];if(s==='implemented')impl++;else if(s==='partial')partial++;else if(s==='inherited')inherited++;else if(s==='na')naCount++;else notImpl++});
   
-  let h=`<h2>CMMC Level ${state.selectedLevel} Dashboard</h2>`;
+  let h=`<h2>Phase 4: CMMC Level ${state.selectedLevel} Dashboard</h2>`;
   
   // Main Score with color indicator
   h+=`<div class="dashboard-summary">
@@ -1184,12 +1165,12 @@ function renderPhase5(){
     </div>
   </div>`;
   
-  h+=nav(5);
+  h+=nav(4);
   return h;
 }
 
 function renderPhase6(){
-  let h=`<h2>Phases 6-8: Document Generation</h2><p class="subtitle">Generate and download your CMMC compliance documentation.</p>`;
+  let h=`<h2>Phase 5: Document Generation</h2><p class="subtitle">Generate and download your CMMC compliance documentation.</p>`;
   h+=`<div class="doc-buttons">
     <button class="doc-btn" onclick="genDoc('exec')"><div class="doc-title">📄 Executive Summary</div><div class="doc-desc">Plain English overview with SPRS score and top gaps</div></button>
     <button class="doc-btn" onclick="genDoc('ssp')"><div class="doc-title">📋 System Security Plan (SSP)</div><div class="doc-desc">Full SSP with org info, boundary, and control narratives</div></button>
@@ -1199,7 +1180,7 @@ function renderPhase6(){
     <button class="doc-btn" onclick="genDoc('evidence')"><div class="doc-title">✅ Evidence Checklist</div><div class="doc-desc">What to collect per control family</div></button>
     <button class="doc-btn" onclick="genZip()"><div class="doc-title">📦 Download All (ZIP)</div><div class="doc-desc">Bundle all documents in a single ZIP file</div></button>
   </div>`;
-  h+=`<div class="nav-buttons"><button class="btn btn-secondary" onclick="goPhase(5)">← Back to Results</button></div>`;
+  h+=`<div class="nav-buttons"><button class="btn btn-secondary" onclick="goPhase(4)">← Back to Results</button></div>`;
   return h;
 }
 
@@ -1210,16 +1191,16 @@ function nav(phase){
   else if(phase===0)h+=`<button class="btn btn-secondary" onclick="resetScreening()">← Back to Screening</button>`;
   else h+='<div></div>';
   
-  if(phase<5){
+  if(phase<4){
     const nextPhase=phase+1;
-    const label=phase===3?'Auto-Populate & Continue →':'Next →';
-    if(phase===3){
-      h+=`<div style="text-align:right"><div class="tooltip-wrap"><button class="btn btn-primary" onclick="autoPopulate();goPhase(${nextPhase})">${label}</button><span class="tooltip-text">Uses your Phase 2 & 3 answers to pre-set control statuses in Phase 4</span></div><div class="auto-pop-hint">ℹ️ Pre-fills Phase 4 controls based on your Phase 2 & 3 answers</div></div>`;
+    const label=phase===2?'Auto-Populate & Continue →':'Next →';
+    if(phase===2){
+      h+=`<div style="text-align:right"><div class="tooltip-wrap"><button class="btn btn-primary" onclick="autoPopulate();goPhase(${nextPhase})">${label}</button><span class="tooltip-text">Uses your Phase 2 answers to pre-set control statuses in Phase 3</span></div><div class="auto-pop-hint">ℹ️ Pre-fills Phase 3 controls based on your Phase 2 answers</div></div>`;
     } else {
       h+=`<button class="btn btn-primary" onclick="validateAndNext(${phase}, ${nextPhase})">${label}</button>`;
     }
-  } else if(phase===4){
-    h+=`<button class="btn btn-primary" onclick="goPhase(5)">View Dashboard →</button>`;
+  } else if(phase===3){
+    h+=`<button class="btn btn-primary" onclick="goPhase(4)">View Dashboard →</button>`;
   }
   h+='</div>';
   return h;
@@ -1256,15 +1237,11 @@ function validateAndNext(currentPhase, nextPhase) {
 function getRequiredFields(phase) {
   const required = {
     0: [
-      { field: 'handlesCUI', label: 'CUI Handling Status' },
-      { field: 'dodContractor', label: 'DoD Contractor Status' }
-    ],
-    1: [
       { field: 'legalName', label: 'Legal Business Name' },
       { field: 'empCount', label: 'Employee Count' }
     ],
-    2: [], // Optional technical details
-    3: [] // Optional policy information
+    1: [], // Optional technical details
+    2: [] // Optional policy information
   };
   return required[phase] || [];
 }
