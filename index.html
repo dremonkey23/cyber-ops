@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cyber Ops — CMMC Level 2 SSP Builder</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 <style>
 :root{--bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;--text:#e6edf3;--text-muted:#8b949e;--accent:#58a6ff;--accent2:#1f6feb;--green:#3fb950;--yellow:#d29922;--red:#f85149;--purple:#bc8cff;--radius:8px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -106,10 +108,70 @@ footer{text-align:center;padding:24px;color:var(--text-muted);font-size:.8em;bor
 .tooltip-wrap{position:relative;display:inline-block}
 .tooltip-wrap .tooltip-text{visibility:hidden;background:var(--surface);color:var(--text);padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);font-size:.8em;position:absolute;bottom:125%;left:50%;transform:translateX(-50%);white-space:nowrap;z-index:10;opacity:0;transition:opacity .2s}
 .tooltip-wrap:hover .tooltip-text{visibility:visible;opacity:1}
+.landing-page{text-align:center;padding:60px 20px;max-width:800px;margin:0 auto}
+.hero-title{font-size:3.2em;font-weight:800;margin-bottom:16px;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-desc{font-size:1.3em;color:var(--text-muted);margin-bottom:32px;line-height:1.5}
+.hero-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin:40px 0;text-align:left}
+.feature-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.feature-icon{font-size:2em;margin-bottom:12px}
+.feature-title{font-weight:700;margin-bottom:8px;color:var(--accent)}
+.start-btn{background:var(--green);color:#000;padding:16px 40px;font-size:1.1em;font-weight:700;border:none;border-radius:var(--radius);cursor:pointer;transition:all .3s;margin-top:20px}
+.start-btn:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(63,185,80,.3)}
+.branding{margin-top:60px;padding-top:40px;border-top:1px solid var(--border);color:var(--text-muted);font-size:.9em}
+.dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:24px 0}
+.dashboard-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;position:relative}
+.dashboard-card h3{margin-top:0;color:var(--accent);margin-bottom:16px}
+.chart-container{position:relative;height:300px;width:100%}
+.score-circle{position:relative;width:200px;height:200px;margin:0 auto}
+.risk-heatmap{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}
+.risk-item{padding:12px;border-radius:var(--radius);text-align:center;font-size:.9em;font-weight:600}
+.risk-high{background:rgba(248,81,73,.2);border:1px solid var(--red);color:var(--red)}
+.risk-medium{background:rgba(210,153,34,.2);border:1px solid var(--yellow);color:var(--yellow)}
+.risk-low{background:rgba(63,185,80,.2);border:1px solid var(--green);color:var(--green)}
+.dashboard-summary{text-align:center;margin-bottom:24px}
+.summary-score{font-size:4em;font-weight:800;line-height:1;margin-bottom:8px}
+.summary-label{font-size:1.2em;color:var(--text-muted)}
+.poam-section{margin-top:32px;padding-top:24px;border-top:1px solid var(--border)}
+.poam-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;border-left:4px solid var(--red)}
+.poam-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.poam-id{font-weight:700;color:var(--accent);font-size:.9em}
+.poam-risk{font-size:.75em;padding:4px 8px;border-radius:12px;font-weight:600}
+.poam-risk.high{background:var(--red);color:#fff}
+.poam-risk.medium{background:var(--yellow);color:#000}
+.poam-risk.low{background:var(--green);color:#000}
+.poam-desc{font-size:.9em;color:var(--text-muted);margin-bottom:8px}
+.poam-action{font-size:.85em;color:var(--text)}
+.download-section{text-align:center;margin-top:32px;padding-top:24px;border-top:1px solid var(--border)}
+@media(max-width:768px){
+  .hero-title{font-size:2.5em}
+  .dashboard-grid{grid-template-columns:1fr}
+  .hero-features{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+  .nav-buttons{flex-direction:column;gap:8px}
+  .nav-buttons .btn{width:100%}
+  .container{padding:15px}
+  .risk-heatmap{grid-template-columns:repeat(auto-fit,minmax(100px,1fr))}
+  .poam-header{flex-direction:column;align-items:flex-start;gap:8px}
+}
+.empty-state{text-align:center;padding:40px 20px;color:var(--text-muted)}
+.empty-state-icon{font-size:3em;margin-bottom:16px;opacity:0.5}
+.loading-spinner{
+  width:20px;height:20px;
+  border:2px solid var(--border);
+  border-top:2px solid var(--accent);
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+  display:inline-block;
+  margin-right:8px;
+}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+.phase-transition{transition:transform 0.3s ease, opacity 0.3s ease}
+.btn.loading{opacity:0.7;cursor:not-allowed}
+.btn.loading:before{content:'';display:inline-block;margin-right:8px}
 </style>
 </head>
 <body>
-<header><div class="container"><div><div class="logo">🛡️ Cyber Ops — <span>CMMC Level 2 SSP Builder</span></div><div class="brand-sub">By <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a></div></div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:6px;font-size:.8em;cursor:pointer;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)"><span id="revLabel">Rev 2</span><input type="checkbox" id="revToggle" onchange="toggleRev()" style="accent-color:var(--accent)"><span style="color:var(--text-muted)">Rev 3</span></label><span class="save-indicator" id="saveIndicator">✓ Saved</span><button class="btn btn-danger start-over" onclick="startOver()">Start Over</button></div></div></header>
+<header id="mainHeader"><div class="container"><div><div class="logo">🛡️ Cyber Ops — <span>CMMC Level 2 SSP Builder</span></div><div class="brand-sub">By <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a></div></div><div id="headerControls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:6px;font-size:.8em;cursor:pointer;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)"><span id="revLabel">Rev 2</span><input type="checkbox" id="revToggle" onchange="toggleRev()" style="accent-color:var(--accent)"><span style="color:var(--text-muted)">Rev 3</span></label><span class="save-indicator" id="saveIndicator">✓ Saved</span><button class="btn btn-danger start-over" onclick="startOver()">Start Over</button></div></div></header>
 <div class="progress-bar"><div class="container"><div class="progress-track"><div class="progress-fill" id="progressFill"></div></div><div class="phase-labels" id="phaseLabels"></div></div></div>
 <div class="container" id="app"></div>
 <footer>© 2026 <a href="https://mirzayanllc.com/" target="_blank">Mirzayan LLC</a> — CMMC Level 2 SSP Builder. All assessment data stays in your browser.</footer>
@@ -246,18 +308,19 @@ const CONTROLS = [
 ];
 
 const FAMILIES = {AC:"Access Control",AT:"Awareness & Training",AU:"Audit & Accountability",CM:"Configuration Management",IA:"Identification & Authentication",IR:"Incident Response",MA:"Maintenance",MP:"Media Protection",PS:"Personnel Security",PE:"Physical Protection",RA:"Risk Assessment",CA:"Security Assessment",SC:"System & Communications Protection",SI:"System & Information Integrity"};
-const PHASE_NAMES = ["Readiness","Organization","Technical","Policies","Controls","Results","Documents"];
+const PHASE_NAMES = ["Welcome","Readiness","Organization","Technical","Policies","Controls","Results","Documents"];
 const STATUS_OPTIONS = [{v:"implemented",l:"✅ Implemented"},{v:"partial",l:"🟡 Partial"},{v:"not_implemented",l:"❌ Not Implemented"},{v:"inherited",l:"🔄 Inherited"},{v:"na",l:"⬜ N/A"}];
 
-const _defaultState={phase:0,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},nistRev:'rev2',searchFilter:""};
+const _defaultState={phase:-1,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},nistRev:'rev2',searchFilter:""};
 const _saved=JSON.parse(localStorage.getItem('cmmc_state')||'null');
 let state;
-if(_saved&&_saved.phase>0){
-  if(confirm('Resume previous session? (Phase '+(parseInt(_saved.phase)+1)+' of 7)\n\nClick Cancel to start fresh.')){state=_saved}
+if(_saved&&_saved.phase>=0){
+  const phaseDisplay = _saved.phase === -1 ? 'Landing' : PHASE_NAMES[_saved.phase + 1] || `Phase ${_saved.phase + 2}`;
+  if(confirm(`Resume previous session? (${phaseDisplay})\n\nClick Cancel to start fresh.`)){state=_saved}
   else{localStorage.removeItem('cmmc_state');state={..._defaultState}}
 }else{state=_saved||{..._defaultState}}
 function save(){localStorage.setItem('cmmc_state',JSON.stringify(state));const ind=document.getElementById('saveIndicator');if(ind){ind.classList.add('show');clearTimeout(window._saveTm);window._saveTm=setTimeout(()=>ind.classList.remove('show'),2000)}}
-function startOver(){if(confirm('Are you sure? This will erase all progress and data.\n\nThis action cannot be undone.')){localStorage.removeItem('cmmc_state');state={phase:0,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},searchFilter:""};render()}}
+function startOver(){if(confirm('Are you sure? This will erase all progress and data.\n\nThis action cannot be undone.')){localStorage.removeItem('cmmc_state');state={phase:-1,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},nistRev:'rev2',searchFilter:""};render()}}
 function checkPhaseEmpty(phase){
   if(phase===2){
     const subs=[state.p2a,state.p2b,state.p2c,state.p2d,state.p2e,state.p2f,state.p2g];
@@ -373,18 +436,71 @@ function calcScore(){
 // ============================================================
 function render(){
   const app=$('#app');
-  const pct=Math.round((state.phase/6)*100);
+  const actualPhase = Math.max(0, state.phase + 1);
+  const pct=Math.round((actualPhase/7)*100);
   $('#progressFill').style.width=pct+'%';
-  let labels='';
-  PHASE_NAMES.forEach((n,i)=>{
-    const cls=i<state.phase?'done':i===state.phase?'active':'';
-    const click=i<state.phase?` onclick="goPhase(${i})" role="button" tabindex="0"`:'';
-    labels+=`<span class="${cls}"${click}>${n}</span>`;
-  });
-  $('#phaseLabels').innerHTML=labels;
-  const renderers=[renderPhase0,renderPhase1,renderPhase2,renderPhase3,renderPhase4,renderPhase5,renderPhase6];
-  app.innerHTML='<div class="phase active">'+renderers[state.phase]()+'</div>';
+  
+  // Hide progress bar and header controls on landing page
+  const progressBar = document.querySelector('.progress-bar');
+  const headerControls = document.getElementById('headerControls');
+  if(state.phase === -1) {
+    progressBar.style.display = 'none';
+    if(headerControls) headerControls.style.display = 'none';
+  } else {
+    progressBar.style.display = 'block';
+    if(headerControls) headerControls.style.display = 'flex';
+    let labels='';
+    PHASE_NAMES.slice(1).forEach((n,i)=>{  // Skip "Welcome" in progress labels
+      const phaseIndex = i;
+      const cls=phaseIndex<state.phase?'done':phaseIndex===state.phase?'active':'';
+      const click=phaseIndex<state.phase?` onclick="goPhase(${phaseIndex})" role="button" tabindex="0"`:'';
+      labels+=`<span class="${cls}"${click}>${n}</span>`;
+    });
+    $('#phaseLabels').innerHTML=labels;
+  }
+  
+  const renderers=[renderLanding,renderPhase0,renderPhase1,renderPhase2,renderPhase3,renderPhase4,renderPhase5,renderPhase6];
+  app.innerHTML='<div class="phase active">'+renderers[state.phase + 1]()+'</div>';
   bindEvents();initRevToggle();
+  
+  // Render charts for dashboard
+  if(state.phase === 4) {
+    renderCharts();
+  }
+}
+
+function renderLanding(){
+  return `
+    <div class="landing-page">
+      <h1 class="hero-title">CMMC Level 2 Self-Assessment Tool</h1>
+      <p class="hero-desc">Walk through all 110 NIST 800-171 controls, generate your SPRS score, and export a ready-to-submit SSP package.</p>
+      
+      <div class="hero-features">
+        <div class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <div class="feature-title">Free. Private.</div>
+          <div>Everything stays in your browser. No data leaves your device.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <div class="feature-title">Complete Assessment</div>
+          <div>All 110 NIST 800-171 Rev 2 controls with automated SPRS scoring.</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📄</div>
+          <div class="feature-title">Export Ready</div>
+          <div>Generate SSP, POA&M, and compliance documentation instantly.</div>
+        </div>
+      </div>
+      
+      <button class="start-btn" onclick="goPhase(0)">Start Assessment</button>
+      
+      <div class="branding">
+        <div>By <a href="https://mirzayanllc.com/" target="_blank" style="color: var(--accent);">Mirzayan LLC</a></div>
+        <div style="margin-top: 8px; font-size: 0.8em;">CMMC Level 2 SSP Builder — Cybersecurity Compliance Made Simple</div>
+      </div>
+    </div>
+  `;
 }
 
 function yn(name,stateObj,key){
@@ -604,11 +720,32 @@ function renderPhase4(){
 function renderPhase5(){
   const{score,gaps}=calcScore();
   const cls=score>=80?'green':score>=50?'yellow':'red';
-  const total=CONTROLS.length;
   let impl=0,partial=0,notImpl=0,inherited=0,naCount=0;
   CONTROLS.forEach(c=>{const s=state.controls[c.id];if(s==='implemented')impl++;else if(s==='partial')partial++;else if(s==='inherited')inherited++;else if(s==='na')naCount++;else notImpl++});
-  let h=`<h2>Phase 5: Results Dashboard</h2>`;
-  h+=`<div class="score-display"><div class="score-number ${cls}">${score}</div><div class="score-label">SPRS Score (out of 110)</div></div>`;
+  
+  let h=`<h2>Executive Summary Dashboard</h2>`;
+  
+  // Main SPRS Score with color indicator
+  h+=`<div class="dashboard-summary">
+    <div class="summary-score ${cls}">${score}</div>
+    <div class="summary-label">SPRS Score (out of 110)</div>
+  </div>`;
+  
+  // Dashboard grid with charts
+  h+=`<div class="dashboard-grid">
+    <div class="dashboard-card">
+      <h3>Control Implementation Status</h3>
+      <div class="chart-container">
+        <canvas id="statusChart" width="300" height="300"></canvas>
+      </div>
+    </div>
+    <div class="dashboard-card">
+      <h3>Risk Heatmap by Control Family</h3>
+      <div class="risk-heatmap" id="riskHeatmap"></div>
+    </div>
+  </div>`;
+  
+  // Stats grid
   h+=`<div class="stats-grid">
     <div class="stat-card"><div class="num" style="color:var(--green)">${impl}</div><div class="lbl">✅ Implemented</div></div>
     <div class="stat-card"><div class="num" style="color:var(--yellow)">${partial}</div><div class="lbl">🟡 Partial</div></div>
@@ -616,27 +753,17 @@ function renderPhase5(){
     <div class="stat-card"><div class="num" style="color:var(--purple)">${inherited}</div><div class="lbl">🔄 Inherited</div></div>
     <div class="stat-card"><div class="num" style="color:var(--text-muted)">${naCount}</div><div class="lbl">⬜ N/A</div></div>
   </div>`;
+  
   if(naCount>0)h+=`<p style="text-align:center;color:var(--text-muted);font-size:.85em">${naCount} control(s) marked N/A — excluded from SPRS scoring</p>`;
-  // Family breakdown
-  h+=`<h3>Compliance by Family</h3>`;
-  Object.keys(FAMILIES).forEach(fk=>{
-    const fc=CONTROLS.filter(c=>c.family===fk);
-    const appFc=fc.filter(c=>state.controls[c.id]!=='na');
-    const done=appFc.filter(c=>state.controls[c.id]==='implemented'||state.controls[c.id]==='inherited').length;
-    const pct=appFc.length?Math.round(done/appFc.length*100):100;
-    const color=pct>=80?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';
-    h+=`<div class="family-bar"><div class="family-bar-label"><span>${FAMILIES[fk]} (${fk})</span><span>${done}/${fc.length}</span></div>
-    <div class="family-bar-track"><div class="family-bar-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
-  });
-  // Top gaps
-  h+=`<h3>Top 5 Gaps (Highest Impact)</h3>`;
-  gaps.slice(0,5).forEach(g=>{
-    h+=`<div class="gap-item"><span class="gap-id">${g.id}</span> — ${g.title}<span class="gap-weight">−${g.weight} pts</span><br><small style="color:var(--text-muted)">${g.desc}</small></div>`;
-  });
-  // Risk level
-  const risk=score>=80?'LOW':score>=50?'MODERATE':'HIGH';
-  const riskColor=score>=80?'var(--green)':score>=50?'var(--yellow)':'var(--red)';
-  h+=`<div style="text-align:center;margin:24px 0;padding:16px;background:var(--surface2);border-radius:var(--radius)"><span style="font-size:1.2em;font-weight:700;color:${riskColor}">Overall Risk Level: ${risk}</span></div>`;
+  
+  // Auto-generated POA&M section
+  h += generatePOAMSection();
+  
+  // Download section
+  h+=`<div class="download-section">
+    <button class="btn btn-success" onclick="generatePDF()">📄 Download Executive Report (PDF)</button>
+  </div>`;
+  
   h+=nav(5);
   return h;
 }
@@ -660,18 +787,75 @@ function fg(label,inner){return`<div class="form-group"><label>${label}</label>$
 function nav(phase){
   let h='<div class="nav-buttons">';
   if(phase>0)h+=`<button class="btn btn-secondary" onclick="goPhase(${phase-1})">← Back</button>`;
+  else if(phase===0)h+=`<button class="btn btn-secondary" onclick="goPhase(-1)">← Back</button>`;
   else h+='<div></div>';
-  if(phase<6){
+  
+  if(phase<5){
     const nextPhase=phase+1;
     const label=phase===3?'Auto-Populate & Continue →':'Next →';
     if(phase===3){
       h+=`<div style="text-align:right"><div class="tooltip-wrap"><button class="btn btn-primary" onclick="autoPopulate();goPhase(${nextPhase})">${label}</button><span class="tooltip-text">Uses your Phase 2 & 3 answers to pre-set control statuses in Phase 4</span></div><div class="auto-pop-hint">ℹ️ Pre-fills Phase 4 controls based on your Phase 2 & 3 answers</div></div>`;
     } else {
-      h+=`<button class="btn btn-primary" onclick="goPhase(${nextPhase})">${label}</button>`;
+      h+=`<button class="btn btn-primary" onclick="validateAndNext(${phase}, ${nextPhase})">${label}</button>`;
     }
+  } else if(phase===4){
+    h+=`<button class="btn btn-primary" onclick="goPhase(5)">View Dashboard →</button>`;
   }
   h+='</div>';
   return h;
+}
+
+// Form validation function
+function validateAndNext(currentPhase, nextPhase) {
+  const requiredFields = getRequiredFields(currentPhase);
+  const missingFields = [];
+  
+  requiredFields.forEach(field => {
+    const value = getFieldValue(field);
+    if (!value || (Array.isArray(value) && value.length === 0)) {
+      missingFields.push(field.label);
+    }
+  });
+  
+  if (missingFields.length > 0) {
+    const proceed = confirm(`Some required fields are empty:\n\n${missingFields.join('\n')}\n\nProceed anyway?`);
+    if (!proceed) return;
+  }
+  
+  // Smooth transition
+  const currentPhaseEl = document.querySelector('.phase.active');
+  if (currentPhaseEl) {
+    currentPhaseEl.style.transform = 'translateX(-20px)';
+    currentPhaseEl.style.opacity = '0.8';
+    setTimeout(() => goPhase(nextPhase), 150);
+  } else {
+    goPhase(nextPhase);
+  }
+}
+
+function getRequiredFields(phase) {
+  const required = {
+    0: [
+      { field: 'handlesCUI', label: 'CUI Handling Status' },
+      { field: 'dodContractor', label: 'DoD Contractor Status' }
+    ],
+    1: [
+      { field: 'legalName', label: 'Legal Business Name' },
+      { field: 'empCount', label: 'Employee Count' }
+    ],
+    2: [], // Optional technical details
+    3: [] // Optional policy information
+  };
+  return required[phase] || [];
+}
+
+function getFieldValue(fieldDef) {
+  const field = fieldDef.field;
+  if (state.p0[field] !== undefined) return state.p0[field];
+  if (state.p1[field] !== undefined) return state.p1[field];
+  if (state.p2a[field] !== undefined) return state.p2a[field];
+  if (state.p3[field] !== undefined) return state.p3[field];
+  return null;
 }
 
 function toggleAcc(key){const el=$(`[data-acc="${key}"]`);el.classList.toggle('open')}
@@ -680,6 +864,270 @@ function toggleFamily(key){const el=$(`[data-family="${key}"]`);el.classList.tog
 // ============================================================
 // EVENT BINDING
 // ============================================================
+// ============================================================
+// POA&M AUTO-GENERATOR
+// ============================================================
+function generatePOAMSection(){
+  const{gaps}=calcScore();
+  const poamItems = gaps.filter(g => {
+    const status = state.controls[g.id];
+    return status === 'partial' || status === 'not_implemented' || !status;
+  });
+  
+  if(poamItems.length === 0) {
+    return `<div class="poam-section">
+      <h3>Plan of Action & Milestones (POA&M)</h3>
+      <div style="text-align:center;color:var(--green);padding:20px;">
+        🎉 All controls are implemented! No POA&M items required.
+      </div>
+    </div>`;
+  }
+  
+  let h = `<div class="poam-section">
+    <h3>Auto-Generated POA&M (${poamItems.length} items)</h3>
+    <p style="color:var(--text-muted);font-size:.9em;margin-bottom:20px;">
+      Plan of Action & Milestones for controls marked as Partially Implemented or Not Implemented
+    </p>`;
+  
+  poamItems.forEach((item, index) => {
+    const status = state.controls[item.id];
+    const riskLevel = item.weight >= 5 ? 'high' : item.weight >= 3 ? 'medium' : 'low';
+    const riskText = riskLevel.toUpperCase();
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + (item.weight >= 5 ? 90 : 180)); // High risk: 90 days, others: 180 days
+    
+    const weakness = status === 'partial' ? 'Partially implemented — gaps remain' : 'Not implemented';
+    const action = getRecommendedAction(item.family, item.id);
+    
+    h += `<div class="poam-item">
+      <div class="poam-header">
+        <div class="poam-id">${item.id}</div>
+        <div class="poam-risk ${riskLevel}">${riskText}</div>
+      </div>
+      <div class="poam-desc"><strong>${item.title}</strong></div>
+      <div class="poam-desc">Weakness: ${weakness}</div>
+      <div class="poam-action">Recommended Action: ${action}</div>
+      <div class="poam-action">Target Date: ${targetDate.toLocaleDateString()}</div>
+      <div class="poam-action">Responsible Party: <span style="color:var(--text-muted);">[To be assigned]</span></div>
+    </div>`;
+  });
+  
+  h += `</div>`;
+  return h;
+}
+
+function getRecommendedAction(family, controlId) {
+  const actions = {
+    AC: 'Implement access control policies, configure user permissions, and establish least privilege principles',
+    AT: 'Develop security awareness training program and conduct regular training sessions',
+    AU: 'Deploy logging solution, configure audit policies, and establish log review procedures',
+    CM: 'Establish configuration baselines, implement change management process, and maintain asset inventory',
+    IA: 'Configure multi-factor authentication, implement strong password policies, and establish identity management',
+    IR: 'Develop incident response plan, establish IR team, and conduct tabletop exercises',
+    MA: 'Document maintenance procedures, implement maintenance controls, and establish approval processes',
+    MP: 'Implement media protection controls, configure encryption, and establish sanitization procedures',
+    PS: 'Establish personnel screening procedures and implement termination/transfer processes',
+    PE: 'Implement physical access controls, install monitoring systems, and establish visitor management',
+    RA: 'Conduct risk assessments, implement vulnerability scanning, and establish remediation procedures',
+    CA: 'Establish security assessment procedures, implement continuous monitoring, and maintain POA&M tracking',
+    SC: 'Implement boundary protection, configure encryption, and establish network security controls',
+    SI: 'Deploy endpoint protection, implement patch management, and establish vulnerability monitoring'
+  };
+  return actions[family] || 'Implement control requirements as specified in NIST SP 800-171';
+}
+
+// ============================================================
+// CHART RENDERING
+// ============================================================
+function renderCharts(){
+  // Status donut chart
+  setTimeout(() => {
+    const canvas = document.getElementById('statusChart');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      
+      let impl=0,partial=0,notImpl=0,inherited=0,naCount=0;
+      CONTROLS.forEach(c=>{
+        const s=state.controls[c.id];
+        if(s==='implemented')impl++;
+        else if(s==='partial')partial++;
+        else if(s==='inherited')inherited++;
+        else if(s==='na')naCount++;
+        else notImpl++;
+      });
+      
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Implemented', 'Partial', 'Not Implemented', 'Inherited', 'N/A'],
+          datasets: [{
+            data: [impl, partial, notImpl, inherited, naCount],
+            backgroundColor: ['#3fb950', '#d29922', '#f85149', '#bc8cff', '#8b949e'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#e6edf3', font: { size: 12 } }
+            }
+          }
+        }
+      });
+    }
+    
+    // Risk heatmap
+    const heatmapEl = document.getElementById('riskHeatmap');
+    if (heatmapEl) {
+      let heatmapHTML = '';
+      Object.keys(FAMILIES).forEach(fk => {
+        const fc = CONTROLS.filter(c => c.family === fk);
+        const issues = fc.filter(c => {
+          const s = state.controls[c.id];
+          return s === 'not_implemented' || s === 'partial' || !s;
+        });
+        const riskLevel = issues.length >= 3 ? 'high' : issues.length >= 1 ? 'medium' : 'low';
+        const riskClass = `risk-${riskLevel}`;
+        heatmapHTML += `<div class="risk-item ${riskClass}">
+          <div>${fk}</div>
+          <div style="font-size:0.8em;margin-top:4px;">${issues.length} gap(s)</div>
+        </div>`;
+      });
+      heatmapEl.innerHTML = heatmapHTML;
+    }
+  }, 100);
+}
+
+// ============================================================
+// PDF GENERATION
+// ============================================================
+function generatePDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const { score, gaps } = calcScore();
+  
+  // Cover page
+  doc.setFontSize(24);
+  doc.setFont(undefined, 'bold');
+  doc.text('CMMC Level 2', 20, 30);
+  doc.text('Executive Summary Report', 20, 45);
+  
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'normal');
+  doc.text(`Organization: ${state.p1.legalName || '[Organization Name]'}`, 20, 70);
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 85);
+  doc.text(`SPRS Score: ${score} / 110`, 20, 100);
+  
+  const riskLevel = score >= 80 ? 'LOW' : score >= 50 ? 'MODERATE' : 'HIGH';
+  const riskColor = score >= 80 ? [63, 185, 80] : score >= 50 ? [210, 153, 34] : [248, 81, 73];
+  doc.setTextColor(...riskColor);
+  doc.setFontSize(18);
+  doc.setFont(undefined, 'bold');
+  doc.text(`Risk Level: ${riskLevel}`, 20, 120);
+  
+  // Add branding
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'normal');
+  doc.text('Generated by Cyber Ops — CMMC Level 2 SSP Builder', 20, 280);
+  doc.text('By Mirzayan LLC', 20, 290);
+  
+  // New page - Summary
+  doc.addPage();
+  doc.setFontSize(18);
+  doc.setFont(undefined, 'bold');
+  doc.text('Compliance Summary', 20, 30);
+  
+  let impl=0,partial=0,notImpl=0,inherited=0,naCount=0;
+  CONTROLS.forEach(c=>{
+    const s=state.controls[c.id];
+    if(s==='implemented')impl++;
+    else if(s==='partial')partial++;
+    else if(s==='inherited')inherited++;
+    else if(s==='na')naCount++;
+    else notImpl++;
+  });
+  
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'normal');
+  let yPos = 50;
+  doc.text(`• Implemented: ${impl} controls`, 20, yPos);
+  doc.text(`• Partially Implemented: ${partial} controls`, 20, yPos += 15);
+  doc.text(`• Not Implemented: ${notImpl} controls`, 20, yPos += 15);
+  doc.text(`• Inherited: ${inherited} controls`, 20, yPos += 15);
+  doc.text(`• Not Applicable: ${naCount} controls`, 20, yPos += 15);
+  
+  // Top gaps
+  if (gaps.length > 0) {
+    yPos += 25;
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text('Top Priority Gaps', 20, yPos);
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    gaps.slice(0, 10).forEach((gap, index) => {
+      if (yPos > 250) {
+        doc.addPage();
+        yPos = 30;
+      }
+      yPos += 15;
+      doc.text(`${index + 1}. ${gap.id} - ${gap.title} (Weight: ${gap.weight})`, 20, yPos);
+      yPos += 10;
+      const splitDesc = doc.splitTextToSize(gap.desc, 170);
+      doc.text(splitDesc, 25, yPos);
+      yPos += splitDesc.length * 5;
+    });
+  }
+  
+  // POA&M section
+  const poamItems = gaps.filter(g => {
+    const status = state.controls[g.id];
+    return status === 'partial' || status === 'not_implemented' || !status;
+  });
+  
+  if (poamItems.length > 0) {
+    doc.addPage();
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text('Plan of Action & Milestones (POA&M)', 20, 30);
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    let yPos = 45;
+    
+    poamItems.slice(0, 15).forEach((item, index) => {
+      if (yPos > 240) {
+        doc.addPage();
+        yPos = 30;
+      }
+      
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + (item.weight >= 5 ? 90 : 180));
+      
+      doc.setFont(undefined, 'bold');
+      doc.text(`${index + 1}. ${item.id} - ${item.title}`, 20, yPos);
+      doc.setFont(undefined, 'normal');
+      yPos += 12;
+      doc.text(`Risk: ${item.weight >= 5 ? 'HIGH' : item.weight >= 3 ? 'MEDIUM' : 'LOW'}`, 25, yPos);
+      yPos += 10;
+      doc.text(`Target Date: ${targetDate.toLocaleDateString()}`, 25, yPos);
+      yPos += 10;
+      const action = getRecommendedAction(item.family, item.id);
+      const splitAction = doc.splitTextToSize(`Action: ${action}`, 165);
+      doc.text(splitAction, 25, yPos);
+      yPos += splitAction.length * 5 + 10;
+    });
+  }
+  
+  // Save the PDF
+  const filename = `CMMC_L2_Executive_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(filename);
+}
+
 function bindEvents(){
   // Map phase → state key prefix
   const phaseMap={0:'p0',1:'p1',3:'p3'};
@@ -922,7 +1370,18 @@ function genEvidence(){
 function genDoc(type){
   const generators={exec:['Executive_Summary.md',genExecSummary],ssp:['System_Security_Plan.md',genSSP],matrix:['Control_Compliance_Matrix.md',genMatrix],sprs:['SPRS_Score_Report.md',genSPRS],poam:['POA_M.md',genPOAM],evidence:['Evidence_Checklist.md',genEvidence]};
   const[fn,gen]=generators[type];
-  dl(fn,gen());
+  
+  // Add loading state
+  const button = event.target;
+  const originalText = button.innerHTML;
+  button.innerHTML = '<span class="loading-spinner"></span>Generating...';
+  button.disabled = true;
+  
+  setTimeout(() => {
+    dl(fn,gen());
+    button.innerHTML = originalText;
+    button.disabled = false;
+  }, 500);
 }
 
 async function genZip(){
@@ -932,9 +1391,52 @@ async function genZip(){
   zip.file('Control_Compliance_Matrix.md',genMatrix());
   zip.file('SPRS_Score_Report.md',genSPRS());
   zip.file('POA_M.md',genPOAM());
+  zip.file('POA_M_Detailed.md',genDetailedPOAM()); // Enhanced POA&M with auto-generated content
   zip.file('Evidence_Checklist.md',genEvidence());
   const blob=await zip.generateAsync({type:'blob'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='CMMC_L2_SSP_Package.zip';a.click();
+}
+
+function genDetailedPOAM(){
+  const{gaps}=calcScore();
+  const poamItems = gaps.filter(g => {
+    const status = state.controls[g.id];
+    return status === 'partial' || status === 'not_implemented' || !status;
+  });
+  
+  let md=`# Detailed Plan of Action & Milestones (POA&M)\n\n**Organization:** ${state.p1.legalName||'[TBD]'}\n**Date:** ${new Date().toLocaleDateString()}\n**Total Items:** ${poamItems.length}\n\n`;
+  
+  if(poamItems.length === 0) {
+    md += `## Status: Complete ✅\n\nAll NIST 800-171 Rev 2 controls are properly implemented. No POA&M items required.\n\n---\n*Generated by Cyber Ops — CMMC Level 2 SSP Builder | Mirzayan LLC*\n`;
+    return md;
+  }
+  
+  md += `| Item # | Control ID | Control Title | Current Status | Risk Level | Target Date | Responsible Party | Estimated Cost | Recommended Action |\n`;
+  md += `|--------|------------|---------------|----------------|------------|-------------|-------------------|----------------|--------------------|\n`;
+  
+  poamItems.forEach((item, index) => {
+    const status = state.controls[item.id];
+    const riskLevel = item.weight >= 5 ? 'HIGH' : item.weight >= 3 ? 'MEDIUM' : 'LOW';
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + (item.weight >= 5 ? 90 : 180));
+    const weakness = status === 'partial' ? 'Partially Implemented' : 'Not Implemented';
+    const action = getRecommendedAction(item.family, item.id);
+    const estimatedCost = item.weight >= 5 ? '$5,000-$15,000' : item.weight >= 3 ? '$2,000-$8,000' : '$500-$3,000';
+    
+    md += `| ${index + 1} | ${item.id} | ${item.title} | ${weakness} | ${riskLevel} | ${targetDate.toLocaleDateString()} | [TBD] | ${estimatedCost} | ${action} |\n`;
+  });
+  
+  md += `\n## Priority Recommendations\n\n`;
+  const highRisk = poamItems.filter(i => i.weight >= 5);
+  if(highRisk.length > 0) {
+    md += `### Immediate Action Required (High Risk)\n\n`;
+    highRisk.forEach((item, index) => {
+      md += `${index + 1}. **${item.id}** — ${item.title}\n   - **Impact:** ${item.weight} points\n   - **Action:** ${getRecommendedAction(item.family, item.id)}\n   - **Timeline:** 90 days\n\n`;
+    });
+  }
+  
+  md+=`\n---\n*Generated by Cyber Ops — CMMC Level 2 SSP Builder | Mirzayan LLC*\n`;
+  return md;
 }
 
 function toggleNote(id){const el=document.getElementById('note-'+id);if(el)el.classList.toggle('open')}
