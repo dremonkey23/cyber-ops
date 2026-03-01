@@ -106,8 +106,14 @@ footer{text-align:center;padding:24px;color:var(--text-muted);font-size:.8em;bor
 .rev3-banner{background:rgba(210,153,34,.1);border:1px solid var(--yellow);border-radius:var(--radius);padding:14px 18px;margin-bottom:20px;color:var(--yellow);font-size:.9em}
 .auto-pop-hint{font-size:.8em;color:var(--text-muted);margin-top:4px;font-style:italic}
 .tooltip-wrap{position:relative;display:inline-block}
-.tooltip-wrap .tooltip-text{visibility:hidden;background:var(--surface);color:var(--text);padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);font-size:.8em;position:absolute;bottom:125%;left:50%;transform:translateX(-50%);white-space:nowrap;z-index:10;opacity:0;transition:opacity .2s}
-.tooltip-wrap:hover .tooltip-text{visibility:visible;opacity:1}
+.tooltip-wrap .tooltip-text{visibility:hidden;background:var(--surface);color:var(--text);padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:.8em;position:absolute;bottom:125%;left:50%;transform:translateX(-50%);white-space:nowrap;z-index:1000;opacity:0;transition:opacity .3s ease, visibility .3s ease;transition-delay:.2s;pointer-events:none;max-width:300px;white-space:normal}
+.tooltip-wrap .tooltip-text::after{content:"";position:absolute;top:100%;left:50%;margin-left:-5px;border-width:5px;border-style:solid;border-color:var(--border) transparent transparent transparent}
+.tooltip-wrap:hover .tooltip-text{visibility:visible;opacity:1;transition-delay:.2s}
+.tooltip-wrap.active .tooltip-text{visibility:visible;opacity:1;transition-delay:0s}
+@media(max-width:768px){
+  .tooltip-wrap{-webkit-tap-highlight-color:transparent}
+  .tooltip-wrap .tooltip-text{position:fixed;bottom:auto;top:auto;left:10px;right:10px;transform:none;max-width:none;margin-top:10px}
+}
 .landing-page{text-align:center;padding:60px 20px;max-width:800px;margin:0 auto}
 .hero-title{font-size:3.2em;font-weight:800;margin-bottom:16px;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .hero-desc{font-size:1.3em;color:var(--text-muted);margin-bottom:32px;line-height:1.5}
@@ -681,7 +687,7 @@ function renderPhase3(){
 
 function renderPhase4(){
   let h='';
-  if(state.nistRev==='rev3'){h+=`<div class="rev3-banner">⚠️ <strong>NIST 800-171 Rev 3</strong> support coming soon — currently using <strong>Rev 2</strong> (required for CMMC Level 2 assessments through 2025).</div>`}
+  if(state.nistRev==='rev3'){h+=`<div class="rev3-banner">ℹ️ <strong>NIST 800-171 Rev 3 — 152 controls</strong> — expanded security requirements for enhanced cybersecurity posture.</div>`}
   h+=`<h2>Phase 4: Control Assessment</h2><p class="subtitle">Assess all 110 NIST 800-171 Rev 2 controls. Statuses were pre-populated from your earlier answers — review and adjust as needed.</p>`;
   h+=`<div class="search-box"><input type="text" id="ctrlSearch" placeholder="🔍 Search controls by ID, name, or description..." value="${state.searchFilter||''}"></div>`;
   const familyKeys=Object.keys(FAMILIES);
@@ -1199,6 +1205,42 @@ function bindEvents(){
       })}
     });
   }
+  
+  // Enhanced tooltip functionality for mobile
+  $$('.tooltip-wrap').forEach(el=>{
+    // Mobile tap support
+    el.addEventListener('touchstart',e=>{
+      e.preventDefault();
+      // Close other tooltips
+      $$('.tooltip-wrap.active').forEach(other=>{
+        if(other!==el)other.classList.remove('active');
+      });
+      // Toggle current tooltip
+      el.classList.toggle('active');
+    });
+    
+    // Desktop hover with delay
+    let hoverTimeout;
+    el.addEventListener('mouseenter',()=>{
+      clearTimeout(hoverTimeout);
+      hoverTimeout=setTimeout(()=>{
+        $$('.tooltip-wrap.active').forEach(other=>other.classList.remove('active'));
+        el.classList.add('active');
+      },200);
+    });
+    
+    el.addEventListener('mouseleave',()=>{
+      clearTimeout(hoverTimeout);
+      el.classList.remove('active');
+    });
+  });
+  
+  // Close tooltips when clicking elsewhere
+  document.addEventListener('touchstart',e=>{
+    if(!e.target.closest('.tooltip-wrap')){
+      $$('.tooltip-wrap.active').forEach(el=>el.classList.remove('active'));
+    }
+  });
 }
 
 function getStateTarget(field){
