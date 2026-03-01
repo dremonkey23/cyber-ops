@@ -338,7 +338,7 @@ const FAMILIES = {AC:"Access Control",AT:"Awareness & Training",AU:"Audit & Acco
 const PHASE_NAMES = ["Welcome","Readiness","Organization","Technical","Policies","Controls","Results","Documents"];
 const STATUS_OPTIONS = [{v:"implemented",l:"✅ Implemented"},{v:"partial",l:"🟡 Partial"},{v:"not_implemented",l:"❌ Not Implemented"},{v:"inherited",l:"🔄 Inherited"},{v:"na",l:"⬜ N/A"}];
 
-const _defaultState={phase:-1,screeningPhase:0,selectedLevel:null,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},searchFilter:""};
+const _defaultState={phase:-1,screeningPhase:0,selectedLevel:null,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlsL1:{},controlsL2:{},controlNotes:{},manuallySetControls:{},searchFilter:""};
 const _saved=JSON.parse(localStorage.getItem('cmmc_state')||'null');
 let state;
 if(_saved&&_saved.phase>=0){
@@ -347,7 +347,41 @@ if(_saved&&_saved.phase>=0){
   else{localStorage.removeItem('cmmc_state');state={..._defaultState}}
 }else{state=_saved||{..._defaultState}}
 function save(){localStorage.setItem('cmmc_state',JSON.stringify(state));const ind=document.getElementById('saveIndicator');if(ind){ind.classList.add('show');clearTimeout(window._saveTm);window._saveTm=setTimeout(()=>ind.classList.remove('show'),2000)}}
-function startOver(){if(confirm('Are you sure? This will erase all progress and data.\n\nThis action cannot be undone.')){localStorage.removeItem('cmmc_state');state={phase:-1,screeningPhase:0,selectedLevel:null,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlNotes:{},searchFilter:""};render()}}
+
+// Browser History Management
+function pushHistory(phase, screeningPhase = null) {
+  const stateObj = { phase, screeningPhase };
+  const url = `${window.location.pathname}${window.location.search}#phase-${phase}${screeningPhase !== null ? `-screening-${screeningPhase}` : ''}`;
+  window.history.pushState(stateObj, '', url);
+}
+
+function savePhaseData() {
+  // Auto-save current phase data before navigating
+  save();
+  return true;
+}
+
+function confirmNavigation() {
+  const isEmpty = checkPhaseEmpty(state.phase);
+  if (isEmpty && (state.phase === 2 || state.phase === 3)) {
+    return confirm('You have unsaved changes. Navigate away anyway?');
+  }
+  return true;
+}
+
+window.addEventListener('popstate', function(event) {
+  if (event.state) {
+    if (event.state.screeningPhase !== null) {
+      state.screeningPhase = event.state.screeningPhase;
+    }
+    if (event.state.phase !== null) {
+      state.phase = event.state.phase;
+    }
+    save();
+    render();
+  }
+});
+function startOver(){if(confirm('Are you sure? This will erase all progress and data.\n\nThis action cannot be undone.')){localStorage.removeItem('cmmc_state');state={phase:-1,screeningPhase:0,selectedLevel:null,p0:{},p1:{},p2a:{},p2b:{},p2c:{},p2d:{},p2e:{},p2f:{},p2g:{},p3:{},controls:{},controlsL1:{},controlsL2:{},controlNotes:{},manuallySetControls:{},searchFilter:""};pushHistory(-1,0);render()}}
 function checkPhaseEmpty(phase){
   if(phase===2){
     const subs=[state.p2a,state.p2b,state.p2c,state.p2d,state.p2e,state.p2f,state.p2g];
@@ -362,10 +396,19 @@ function checkPhaseEmpty(phase){
 }
 function goPhase(n){
   const cur=state.phase;
+  
+  // Save current phase data first
+  if (!savePhaseData()) return;
+  
+  // Navigation confirmation for empty phases
   if(n>cur&&(cur===2||cur===3)&&checkPhaseEmpty(cur)){
-    if(!confirm('Some fields are empty — continue anyway?'))return;
+    if(!confirmNavigation())return;
   }
-  state.phase=n;save();render();
+  
+  state.phase=n;
+  pushHistory(n);
+  save();
+  render();
 }
 function $(s,p){return(p||document).querySelector(s)}
 function $$(s,p){return[...(p||document).querySelectorAll(s)]}
@@ -375,62 +418,71 @@ function $$(s,p){return[...(p||document).querySelectorAll(s)]}
 // ============================================================
 function autoPopulate(){
   const c = state.controls;
+  const manual = state.manuallySetControls || {};
   const {p2a,p2b,p2c,p2d,p2e,p2f,p2g,p3} = state;
+  
+  // Only auto-populate controls that haven't been manually set
+  function setControl(id, value) {
+    if (!manual[id]) {
+      c[id] = value;
+    }
+  }
+  
   // MFA
-  if(p2a.mfa && p2a.mfa.includes('all users')){c['IA.L2-3.5.3']='implemented'}
-  else if(p2a.mfa && p2a.mfa.includes('privileged users')){c['IA.L2-3.5.3']='partial'}
-  else if(p2a.mfa && p2a.mfa.includes('none')){c['IA.L2-3.5.3']='not_implemented'}
+  if(p2a.mfa && p2a.mfa.includes('all users')){setControl('IA.L2-3.5.3','implemented')}
+  else if(p2a.mfa && p2a.mfa.includes('privileged users')){setControl('IA.L2-3.5.3','partial')}
+  else if(p2a.mfa && p2a.mfa.includes('none')){setControl('IA.L2-3.5.3','not_implemented')}
   // Password complexity
-  if(p2a.pwComplexity==='yes'&&parseInt(p2a.pwMinLen)>=12){c['IA.L2-3.5.7']='implemented'}
-  else if(p2a.pwComplexity==='yes'){c['IA.L2-3.5.7']='partial'}
+  if(p2a.pwComplexity==='yes'&&parseInt(p2a.pwMinLen)>=12){setControl('IA.L2-3.5.7','implemented')}
+  else if(p2a.pwComplexity==='yes'){setControl('IA.L2-3.5.7','partial')}
   // Identity provider
-  if(p2a.idp&&p2a.idp!=='Other'){c['IA.L2-3.5.1']='implemented';c['IA.L2-3.5.2']='implemented'}
+  if(p2a.idp&&p2a.idp!=='Other'){setControl('IA.L2-3.5.1','implemented');setControl('IA.L2-3.5.2','implemented')}
   // Account review
-  if(p2a.acctReview==='monthly'||p2a.acctReview==='quarterly'){c['AC.L2-3.1.5']='implemented';c['IA.L2-3.5.6']='implemented'}
-  else if(p2a.acctReview==='never'){c['IA.L2-3.5.6']='not_implemented'}
+  if(p2a.acctReview==='monthly'||p2a.acctReview==='quarterly'){setControl('AC.L2-3.1.5','implemented');setControl('IA.L2-3.5.6','implemented')}
+  else if(p2a.acctReview==='never'){setControl('IA.L2-3.5.6','not_implemented')}
   // EDR
-  if(p2b.edr&&p2b.edr!=='None'){c['SI.L2-3.14.2']='implemented';c['SI.L2-3.14.4']='implemented';c['SI.L2-3.14.5']='implemented'}
-  else if(p2b.edr==='None'){c['SI.L2-3.14.2']='not_implemented';c['SI.L2-3.14.5']='not_implemented'}
+  if(p2b.edr&&p2b.edr!=='None'){setControl('SI.L2-3.14.2','implemented');setControl('SI.L2-3.14.4','implemented');setControl('SI.L2-3.14.5','implemented')}
+  else if(p2b.edr==='None'){setControl('SI.L2-3.14.2','not_implemented');setControl('SI.L2-3.14.5','not_implemented')}
   // Encryption
-  if(p2b.encryption==='all devices'){c['MP.L2-3.8.6']='implemented';c['SC.L2-3.13.16']='implemented';c['AC.L2-3.1.19']='implemented'}
-  else if(p2b.encryption==='none'){c['MP.L2-3.8.6']='not_implemented';c['SC.L2-3.13.16']='not_implemented'}
+  if(p2b.encryption==='all devices'){setControl('MP.L2-3.8.6','implemented');setControl('SC.L2-3.13.16','implemented');setControl('AC.L2-3.1.19','implemented')}
+  else if(p2b.encryption==='none'){setControl('MP.L2-3.8.6','not_implemented');setControl('SC.L2-3.13.16','not_implemented')}
   // Patch
-  if(p2b.patchFreq==='weekly'||p2b.patchFreq==='monthly'){c['SI.L2-3.14.1']='implemented'}
-  else if(p2b.patchFreq==='ad-hoc'){c['SI.L2-3.14.1']='partial'}
+  if(p2b.patchFreq==='weekly'||p2b.patchFreq==='monthly'){setControl('SI.L2-3.14.1','implemented')}
+  else if(p2b.patchFreq==='ad-hoc'){setControl('SI.L2-3.14.1','partial')}
   // Asset inventory
-  if(p2b.assetInv&&p2b.assetInv.toLowerCase()!=='none'&&p2b.assetInv!==''){c['CM.L2-3.4.1']='implemented'}
+  if(p2b.assetInv&&p2b.assetInv.toLowerCase()!=='none'&&p2b.assetInv!==''){setControl('CM.L2-3.4.1','implemented')}
   // Network seg
-  if(p2c.netSeg==='yes'){c['SC.L2-3.13.5']='implemented'}
-  if(p2c.vpn==='yes'){c['AC.L2-3.1.13']='implemented';c['AC.L2-3.1.14']='implemented'}
-  if(p2c.ids==='yes'){c['SI.L2-3.14.6']='implemented'}
-  else if(p2c.ids==='no'){c['SI.L2-3.14.6']='not_implemented'}
+  if(p2c.netSeg==='yes'){setControl('SC.L2-3.13.5','implemented')}
+  if(p2c.vpn==='yes'){setControl('AC.L2-3.1.13','implemented');setControl('AC.L2-3.1.14','implemented')}
+  if(p2c.ids==='yes'){setControl('SI.L2-3.14.6','implemented')}
+  else if(p2c.ids==='no'){setControl('SI.L2-3.14.6','not_implemented')}
   // SIEM
-  if(p2d.siem&&p2d.siem.toLowerCase()!=='none'&&p2d.siem!==''){c['AU.L2-3.3.1']='implemented';c['AU.L2-3.3.5']='implemented';c['AU.L2-3.3.6']='implemented'}
-  else if(p2d.siem===''||p2d.siem==='None'){c['AU.L2-3.3.1']='not_implemented';c['AU.L2-3.3.5']='not_implemented'}
-  if(p2d.logRetention==='1 year'||p2d.logRetention==='2+ years'){c['AU.L2-3.3.8']='implemented'}
-  if(p2d.alertTriage==='yes'){c['AU.L2-3.3.4']='implemented'}
+  if(p2d.siem&&p2d.siem.toLowerCase()!=='none'&&p2d.siem!==''){setControl('AU.L2-3.3.1','implemented');setControl('AU.L2-3.3.5','implemented');setControl('AU.L2-3.3.6','implemented')}
+  else if(p2d.siem===''||p2d.siem==='None'){setControl('AU.L2-3.3.1','not_implemented');setControl('AU.L2-3.3.5','not_implemented')}
+  if(p2d.logRetention==='1 year'||p2d.logRetention==='2+ years'){setControl('AU.L2-3.3.8','implemented')}
+  if(p2d.alertTriage==='yes'){setControl('AU.L2-3.3.4','implemented')}
   // Vuln
-  if(p2e.vulnScanner&&p2e.vulnScanner.toLowerCase()!=='none'&&p2e.vulnScanner!==''){c['RA.L2-3.11.2']='implemented'}
-  else{c['RA.L2-3.11.2']='not_implemented'}
-  if(p2e.patchSLA==='yes'){c['RA.L2-3.11.3']='implemented'}
-  if(p2e.cisBaselines==='yes'){c['CM.L2-3.4.2']='implemented'}
+  if(p2e.vulnScanner&&p2e.vulnScanner.toLowerCase()!=='none'&&p2e.vulnScanner!==''){setControl('RA.L2-3.11.2','implemented')}
+  else{setControl('RA.L2-3.11.2','not_implemented')}
+  if(p2e.patchSLA==='yes'){setControl('RA.L2-3.11.3','implemented')}
+  if(p2e.cisBaselines==='yes'){setControl('CM.L2-3.4.2','implemented')}
   // IR
-  if(p2f.irPlan==='yes'){c['IR.L2-3.6.1']='implemented';c['IR.L2-3.6.2']='implemented'}
-  else if(p2f.irPlan==='no'){c['IR.L2-3.6.1']='not_implemented';c['IR.L2-3.6.2']='not_implemented'}
-  if(p2f.irTest&&p2f.irTest!=='Never'&&p2f.irTest!==''){c['IR.L2-3.6.3']='implemented'}
-  else{c['IR.L2-3.6.3']='not_implemented'}
+  if(p2f.irPlan==='yes'){setControl('IR.L2-3.6.1','implemented');setControl('IR.L2-3.6.2','implemented')}
+  else if(p2f.irPlan==='no'){setControl('IR.L2-3.6.1','not_implemented');setControl('IR.L2-3.6.2','not_implemented')}
+  if(p2f.irTest&&p2f.irTest!=='Never'&&p2f.irTest!==''){setControl('IR.L2-3.6.3','implemented')}
+  else{setControl('IR.L2-3.6.3','not_implemented')}
   // Physical
-  if(p2g.accessControls&&(p2g.accessControls.includes('badge/keycard')||p2g.accessControls.includes('biometric'))){c['PE.L2-3.10.1']='implemented';c['PE.L2-3.10.5']='implemented'}
-  if(p2g.visitorLog==='yes'){c['PE.L2-3.10.3']='implemented';c['PE.L2-3.10.4']='implemented'}
-  if(p2g.mediaSan==='yes'){c['MP.L2-3.8.3']='implemented';c['MA.L2-3.7.3']='implemented'}
+  if(p2g.accessControls&&(p2g.accessControls.includes('badge/keycard')||p2g.accessControls.includes('biometric'))){setControl('PE.L2-3.10.1','implemented');setControl('PE.L2-3.10.5','implemented')}
+  if(p2g.visitorLog==='yes'){setControl('PE.L2-3.10.3','implemented');setControl('PE.L2-3.10.4','implemented')}
+  if(p2g.mediaSan==='yes'){setControl('MP.L2-3.8.3','implemented');setControl('MA.L2-3.7.3','implemented')}
   // Policies
-  if(p3.secPolicies==='yes'){c['CA.L2-3.12.4']='implemented'}
-  if(p3.aup==='yes'){c['AT.L2-3.2.1']='partial'}
-  if(p3.accessPolicy==='yes'){c['AC.L2-3.1.1']='implemented';c['AC.L2-3.1.2']='implemented'}
-  if(p3.irPolicy==='yes'&&p2f.irPlan==='yes'){c['IR.L2-3.6.1']='implemented'}
-  if(p3.training==='yes'){c['AT.L2-3.2.1']='implemented';c['AT.L2-3.2.2']='implemented';c['AT.L2-3.2.3']='implemented'}
-  if(p3.vendorRisk==='yes'){c['CA.L2-3.12.1']='partial'}
-  if(p3.poam==='yes'){c['CA.L2-3.12.2']='implemented'}
+  if(p3.secPolicies==='yes'){setControl('CA.L2-3.12.4','implemented')}
+  if(p3.aup==='yes'){setControl('AT.L2-3.2.1','partial')}
+  if(p3.accessPolicy==='yes'){setControl('AC.L2-3.1.1','implemented');setControl('AC.L2-3.1.2','implemented')}
+  if(p3.irPolicy==='yes'&&p2f.irPlan==='yes'){setControl('IR.L2-3.6.1','implemented')}
+  if(p3.training==='yes'){setControl('AT.L2-3.2.1','implemented');setControl('AT.L2-3.2.2','implemented');setControl('AT.L2-3.2.3','implemented')}
+  if(p3.vendorRisk==='yes'){setControl('CA.L2-3.12.1','partial')}
+  if(p3.poam==='yes'){setControl('CA.L2-3.12.2','implemented')}
   save();
 }
 
@@ -452,6 +504,7 @@ function handleScreeningQ1() {
   } else {
     state.screeningPhase = 2;
   }
+  pushHistory(state.phase, state.screeningPhase);
   save();
   render();
 }
@@ -469,14 +522,23 @@ function handleScreeningQ2() {
     selectLevel(1);
   } else {
     state.screeningPhase = 3;
+    pushHistory(state.phase, state.screeningPhase);
     save();
     render();
   }
 }
 
+function goBackScreening(targetPhase) {
+  state.screeningPhase = targetPhase;
+  pushHistory(state.phase, state.screeningPhase);
+  save();
+  render();
+}
+
 function selectLevel(level) {
   state.selectedLevel = level;
   state.screeningPhase = 4;
+  pushHistory(state.phase, state.screeningPhase);
   save();
   render();
 }
@@ -484,6 +546,7 @@ function selectLevel(level) {
 function startAssessment(level) {
   state.selectedLevel = level;
   state.phase = 0;
+  pushHistory(0);
   save();
   render();
 }
@@ -491,15 +554,31 @@ function startAssessment(level) {
 function resetScreening() {
   state.screeningPhase = 0;
   state.selectedLevel = null;
+  pushHistory(state.phase, 0);
   save();
   render();
 }
 
 function switchLevel(newLevel) {
-  if(confirm(`Switch to CMMC Level ${newLevel}? This will reset your current progress.`)) {
+  const currentLevel = state.selectedLevel;
+  
+  // Save current level data
+  if (currentLevel === 1) {
+    state.controlsL1 = {...state.controls};
+  } else if (currentLevel === 2) {
+    state.controlsL2 = {...state.controls};
+  }
+  
+  if(confirm(`Switch to CMMC Level ${newLevel}? Your Level ${currentLevel} progress is saved.`)) {
     state.selectedLevel = newLevel;
-    state.controls = {};
-    state.controlNotes = {};
+    
+    // Load saved data for new level
+    if (newLevel === 1) {
+      state.controls = {...(state.controlsL1 || {})};
+    } else if (newLevel === 2) {
+      state.controls = {...(state.controlsL2 || {})};
+    }
+    
     save();
     render();
   }
@@ -587,7 +666,7 @@ function render(){
     PHASE_NAMES.slice(1).forEach((n,i)=>{  // Skip "Welcome" in progress labels
       const phaseIndex = i;
       const cls=phaseIndex<state.phase?'done':phaseIndex===state.phase?'active':'';
-      const click=phaseIndex<state.phase?` onclick="goPhase(${phaseIndex})" role="button" tabindex="0"`:'';
+      const click=phaseIndex<state.phase?` onclick="savePhaseData()&&goPhase(${phaseIndex})" role="button" tabindex="0"`:'';
       labels+=`<span class="${cls}"${click}>${n}</span>`;
     });
     $('#phaseLabels').innerHTML=labels;
@@ -693,7 +772,7 @@ function renderLanding(){
           </div>
           <div style="margin-top:16px;text-align:center;">
             <button class="btn btn-primary" onclick="handleScreeningQ2()">Continue</button>
-            <button class="btn btn-secondary" onclick="resetScreening()" style="margin-left:8px;">← Back</button>
+            <button class="btn btn-secondary" onclick="goBackScreening(0)" style="margin-left:8px;">← Back</button>
           </div>
         </div>
       </div>
@@ -736,11 +815,11 @@ function renderLanding(){
             <a href="https://mirzayanllc.com" target="_blank" style="color:var(--accent);">Mirzayan LLC offers CUI scoping consultations</a>
           </div>
           <div style="text-align:center;">
-            <button class="btn btn-success" onclick="selectLevel(1)">I'll try Level 1 for now</button>
-            <button class="btn btn-primary" onclick="selectLevel(2)" style="margin-left:8px;">I'll try Level 2</button>
+            <button class="btn btn-success" onclick="selectLevel(1)">Choose Level 1</button>
+            <button class="btn btn-primary" onclick="selectLevel(2)" style="margin-left:8px;">Choose Level 2</button>
           </div>
           <div style="text-align:center;margin-top:12px;">
-            <button class="btn btn-secondary" onclick="state.screeningPhase=2;render()">← Back to CUI Question</button>
+            <button class="btn btn-secondary" onclick="goBackScreening(2)">← Back to CUI Question</button>
           </div>
         </div>
       </div>
@@ -1521,7 +1600,16 @@ function bindEvents(){
   });
   // Control selects
   $$('[data-control]').forEach(el=>{
-    el.addEventListener('change',()=>{state.controls[el.dataset.control]=el.value;save()});
+    el.addEventListener('change',()=>{
+      const controlId = el.dataset.control;
+      state.controls[controlId] = el.value;
+      
+      // Track manually set controls
+      if (!state.manuallySetControls) state.manuallySetControls = {};
+      state.manuallySetControls[controlId] = true;
+      
+      save();
+    });
   });
   // Control notes
   $$('[data-note]').forEach(el=>{
@@ -1833,6 +1921,11 @@ function toggleNote(id){const el=document.getElementById('note-'+id);if(el)el.cl
 
 // Init
 render();
+
+// Initialize browser history state
+if (state.phase !== undefined && window.history.state === null) {
+  pushHistory(state.phase, state.screeningPhase);
+}
 </script>
 </body>
 </html>
