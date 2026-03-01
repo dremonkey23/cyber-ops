@@ -394,14 +394,14 @@ function checkPhaseEmpty(phase){
   }
   return false;
 }
-function goPhase(n){
+function goPhase(n, force){
   const cur=state.phase;
   
   // Save current phase data first
   if (!savePhaseData()) return;
   
-  // Navigation confirmation for empty phases
-  if(n>cur&&(cur===1||cur===2)&&checkPhaseEmpty(cur)){
+  // Navigation confirmation for empty phases (skip if forced)
+  if(!force && n>cur&&(cur===1||cur===2)&&checkPhaseEmpty(cur)){
     if(!confirmNavigation())return;
   }
   
@@ -1195,12 +1195,12 @@ function nav(phase){
     const nextPhase=phase+1;
     const label=phase===2?'Auto-Populate & Continue →':'Next →';
     if(phase===2){
-      h+=`<div style="text-align:right"><div class="tooltip-wrap"><button class="btn btn-primary" onclick="autoPopulate();goPhase(${nextPhase})">${label}</button><span class="tooltip-text">Uses your Phase 2 answers to pre-set control statuses in Phase 3</span></div><div class="auto-pop-hint">ℹ️ Pre-fills Phase 3 controls based on your Phase 2 answers</div></div>`;
+      h+=`<div style="text-align:right"><div class="tooltip-wrap"><button class="btn btn-primary" onclick="autoPopulate();goPhase(${nextPhase},true)">${label}</button><span class="tooltip-text">Uses your Phase 2 answers to pre-set control statuses in Phase 3</span></div><div class="auto-pop-hint">ℹ️ Pre-fills Phase 3 controls based on your Phase 2 answers</div></div>`;
     } else {
       h+=`<button class="btn btn-primary" onclick="validateAndNext(${phase}, ${nextPhase})">${label}</button>`;
     }
   } else if(phase===3){
-    h+=`<button class="btn btn-primary" onclick="goPhase(4)">View Dashboard →</button>`;
+    h+=`<button class="btn btn-primary" onclick="goPhase(4,true)">View Dashboard →</button>`;
   }
   h+='</div>';
   return h;
